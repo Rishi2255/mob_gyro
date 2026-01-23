@@ -1,59 +1,39 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>My 360° Video Player</title>
+    <title>Pro 360° Player</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-      #controls {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        z-index: 999;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 15px;
-        border-radius: 8px;
-        color: white;
-        font-family: sans-serif;
-      }
-      input { margin-top: 10px; }
+      #controls { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; font-family: sans-serif; }
     </style>
   </head>
   <body>
 
     <div id="controls">
-      <strong>Select your 360° Video:</strong><br>
       <input type="file" id="fileInput" accept="video/*">
-      <p id="status" style="font-size: 0.8em; margin-top: 5px;">Waiting for file...</p>
+      <div id="status">Upload a 360 video</div>
     </div>
 
-    <a-scene>
+    <a-scene renderer="antialias: false; powerPreference: high-performance">
       <a-assets>
-        <video id="videoElement" loop crossorigin="anonymous" playsinline></video>
+        <video id="videoElement" loop crossorigin="anonymous" playsinline webkit-playsinline></video>
       </a-assets>
 
       <a-videosphere src="#videoElement" rotation="0 -90 0"></a-videosphere>
 
-      <a-camera user-height="0"></a-camera>
+      <a-camera look-controls="pointerLockEnabled: true" wasd-controls-enabled="false"></a-camera>
     </a-scene>
 
     <script>
       const fileInput = document.getElementById('fileInput');
       const video = document.getElementById('videoElement');
-      const status = document.getElementById('status');
 
       fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-          // Create a temporary URL for the local file
-          const fileURL = URL.createObjectURL(file);
-          
-          // Apply the URL to the video element
-          video.src = fileURL;
-          video.load();
+          video.src = URL.createObjectURL(file);
           video.play();
-
-          status.innerText = "Playing: " + file.name;
-          console.log("Video source updated!");
+          document.getElementById('status').innerText = "Playing: " + file.name;
         }
       });
     </script>
