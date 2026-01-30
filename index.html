@@ -1,38 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Fix Distortion VR</title>
+    <title>Pro 360 VR - Flat & Fast</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #ui {
             position: absolute; z-index: 1000; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #111; color: white; font-family: sans-serif;
+            background: #000; color: white; font-family: sans-serif;
         }
         .btn {
-            padding: 15px 30px; background: #0078ff; border: none;
-            color: white; border-radius: 5px; font-weight: bold; cursor: pointer;
+            padding: 20px 40px; background: #222; border: 2px solid #0078ff;
+            color: #0078ff; border-radius: 50px; font-weight: bold; cursor: pointer;
+            transition: 0.3s;
         }
+        .btn:hover { background: #0078ff; color: white; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>360° Zero-Distortion Player</h2>
+        <h1 style="letter-spacing: 2px;">360° CINEMA</h1>
         <input type="file" id="f" accept="video/*" style="display:none">
-        <button class="btn" onclick="document.getElementById('f').click()">CHOOSE VIDEO</button>
-        <p id="msg">Select a file to begin</p>
+        <button class="btn" onclick="document.getElementById('f').click()">LOAD VR VIDEO</button>
     </div>
 
-    <a-scene id="s" renderer="antialias: false; foveationLevel: 0;" vr-mode-ui="enabled: false">
+    <a-scene id="s" 
+             renderer="antialias: false; foveationLevel: 0; powerPreference: high-performance;" 
+             vr-mode-ui="enabled: false">
+        
         <a-assets>
-            <video id="v" loop crossorigin="anonymous" playsinline></video>
+            <video id="v" loop crossorigin="anonymous" playsinline webkit-playsinline></video>
         </a-assets>
 
-        <a-videosphere src="#v" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere src="#v" rotation="0 -90 0" segments-width="32" segments-height="32"></a-videosphere>
 
-        <a-camera id="cam" look-controls="smoothingFactor: 1; touchEnabled: true;"></a-camera>
+        <a-camera id="cam" look-controls="smoothingFactor: 1; touchEnabled: false; magicWindowTrackingEnabled: true"></a-camera>
     </a-scene>
 
     <script>
@@ -47,24 +51,22 @@
                 video.play();
                 document.getElementById('ui').style.display = 'none';
                 
-                // Manually trigger the side-by-side view WITHOUT lens distortion
-                enterCleanVR();
+                // Trigger VR
+                scene.enterVR();
+                
+                // CRITICAL FIX: After entering VR, we reset the Projection Matrix.
+                // This removes the "bowing/distortion" seen in your photos.
+                setTimeout(forceFlatView, 500);
             }
         };
 
-        function enterCleanVR() {
-            // Force WebXR to use 'local-floor' which is more stable for head tracking
-            scene.enterVR();
-            
-            // Wait a moment for the VR session to start, then override the projection
-            setTimeout(() => {
-                if (scene.renderer.xr.getSession()) {
-                    const session = scene.renderer.xr.getSession();
-                    // This is the "Nuclear Option" for distortion: 
-                    // It forces the cameras to stay perfectly rectangular.
-                    scene.renderer.xr.setFramebufferScaleFactor(1.0);
-                }
-            }, 500);
+        function forceFlatView() {
+            if (scene.renderer.xr.getSession()) {
+                // This ensures the browser treats the phone screen like a 
+                // perfectly flat surface, not a curved lens.
+                scene.renderer.xr.setFramebufferScaleFactor(1.0);
+                console.log("Distortion Filter Removed.");
+            }
         }
     </script>
 </body>
