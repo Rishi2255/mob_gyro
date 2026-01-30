@@ -1,47 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>High-Perf VR Player</title>
+    <title>Smooth 360 VR</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-        body { margin: 0; background: #000; font-family: sans-serif; }
+        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; }
         #overlay {
             position: absolute; z-index: 1000; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.85); color: white;
+            background: rgba(0,0,0,0.9); color: white;
         }
         .upload-btn {
-            padding: 15px 25px; background: #2196F3; border-radius: 5px;
-            cursor: pointer; margin-top: 15px; font-weight: bold;
+            padding: 20px 40px; background: #ef2d5e; border-radius: 8px;
+            cursor: pointer; font-weight: bold; font-size: 1.2em;
         }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <h2>360° Smooth VR</h2>
         <label class="upload-btn">
-            SELECT VIDEO FILE
+            OPEN 360° VIDEO
             <input type="file" id="fileInput" accept="video/*" style="display:none">
         </label>
-        <p id="status">Waiting for input...</p>
+        <p id="status" style="margin-top:15px; color:#888;">Select file to enter Dual-Screen mode</p>
     </div>
 
     <a-scene id="scene" 
              renderer="antialias: false; 
                        precision: low; 
-                       powerPreference: high-performance;
-                       foveationLevel: 0;"
+                       foveationLevel: 0;
+                       powerPreference: high-performance;"
              vr-mode-ui="enabled: true">
         
         <a-assets>
             <video id="v" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
         </a-assets>
 
-        <a-videosphere src="#v" segments-width="32" segments-height="32"></a-videosphere>
+        <a-videosphere src="#v" segments-width="32" segments-height="32" rotation="0 -90 0"></a-videosphere>
 
-        <a-camera look-controls="smoothingFactor: 1; pointerLockEnabled: true" wasd-controls-enabled="false">
-        </a-camera>
+        <a-camera look-controls="smoothingFactor: 1" wasd-controls-enabled="false"></a-camera>
     </a-scene>
 
     <script>
@@ -52,27 +50,30 @@
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                video.src = URL.createObjectURL(file);
+                const url = URL.createObjectURL(file);
+                video.src = url;
                 
                 video.addEventListener('loadeddata', () => {
                     document.getElementById('overlay').style.display = 'none';
                     video.play();
                     
-                    // Trigger VR Mode
-                    setTimeout(() => { scene.enterVR(); }, 100);
+                    // Small delay ensures the VR button is ready to be triggered
+                    setTimeout(() => { 
+                        scene.enterVR(); 
+                        removeDistortion();
+                    }, 200);
                 });
             }
         });
 
-        // CRITICAL PERFORMANCE FIX: 
-        // Force the renderer to stop calculating lens distortion (the "warped" edges)
-        scene.addEventListener('enter-vr', () => {
-            const renderer = scene.renderer;
-            if (renderer.xr.getSession()) {
-                // This prevents the "Cardboard" profile from adding heavy distortion shaders
-                renderer.xr.setFramebufferScaleFactor(1.0);
+        // This function forces the VR session to ignore "Cardboard" lens distortion
+        function removeDistortion() {
+            if (scene.renderer.xr.getSession()) {
+                const session = scene.renderer.xr.getSession();
+                // Forces the projection to be linear/rectangular
+                scene.renderer.xr.setFramebufferScaleFactor(1.0);
             }
-        });
+        }
     </script>
 </body>
 </html>
