@@ -1,96 +1,77 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Auto-VR 360 Player</title>
+    <title>High-Perf VR Player</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
+        body { margin: 0; background: #000; font-family: sans-serif; }
         #overlay {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000; background: rgba(20, 20, 20, 0.9);
-            padding: 30px; border-radius: 15px;
-            text-align: center; color: white; font-family: sans-serif;
-            border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: absolute; z-index: 1000; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.85); color: white;
         }
-        input[type="file"] { margin-top: 20px; color: transparent; width: 120px; }
-        .btn {
-            background: #ef2d5e; color: white; border: none;
-            padding: 10px 20px; border-radius: 5px; cursor: pointer;
-            font-weight: bold; margin-top: 10px;
+        .upload-btn {
+            padding: 15px 25px; background: #2196F3; border-radius: 5px;
+            cursor: pointer; margin-top: 15px; font-weight: bold;
         }
-        #status { margin-top: 10px; font-size: 0.9em; color: #bbb; }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <h2>360° VR Player</h2>
-        <p>Select a video file to start in Dual-Screen Mode</p>
-        <input type="file" id="fileInput" accept="video/*"><br>
-        <div id="status">Waiting for file...</div>
+        <h2>360° Smooth VR</h2>
+        <label class="upload-btn">
+            SELECT VIDEO FILE
+            <input type="file" id="fileInput" accept="video/*" style="display:none">
+        </label>
+        <p id="status">Waiting for input...</p>
     </div>
 
-    <a-scene id="mainScene" 
+    <a-scene id="scene" 
              renderer="antialias: false; 
                        precision: low; 
-                       powerPreference: high-performance; 
-                       sortObjects: false;"
+                       powerPreference: high-performance;
+                       foveationLevel: 0;"
              vr-mode-ui="enabled: true">
         
         <a-assets>
-            <video id="videoElement" 
-                   loop="true" 
-                   crossorigin="anonymous" 
-                   playsinline 
-                   webkit-playsinline 
-                   preload="auto">
-            </video>
+            <video id="v" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
         </a-assets>
 
-        <a-videosphere id="sphere" src="#videoElement" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere src="#v" segments-width="32" segments-height="32"></a-videosphere>
 
-        <a-camera look-controls="pointerLockEnabled: true; smoothingFactor: 1" 
-                  wasd-controls-enabled="false">
+        <a-camera look-controls="smoothingFactor: 1; pointerLockEnabled: true" wasd-controls-enabled="false">
         </a-camera>
     </a-scene>
 
     <script>
         const fileInput = document.getElementById('fileInput');
-        const video = document.getElementById('videoElement');
-        const overlay = document.getElementById('overlay');
-        const scene = document.getElementById('mainScene');
-        const status = document.getElementById('status');
+        const video = document.getElementById('v');
+        const scene = document.getElementById('scene');
 
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                status.innerText = "Loading video buffer...";
-                const fileURL = URL.createObjectURL(file);
-                video.src = fileURL;
-
-                // Wait for video metadata to be ready
-                video.addEventListener('loadeddata', function() {
-                    // Hide UI
-                    overlay.style.display = 'none';
-                    
-                    // Start Playback
+                video.src = URL.createObjectURL(file);
+                
+                video.addEventListener('loadeddata', () => {
+                    document.getElementById('overlay').style.display = 'none';
                     video.play();
-
-                    // FORCE VR MODE (Dual Screen)
-                    if (scene.enterVR) {
-                        scene.enterVR();
-                    } else {
-                        // Fallback if scene isn't fully loaded
-                        scene.addEventListener('loaded', () => scene.enterVR());
-                    }
+                    
+                    // Trigger VR Mode
+                    setTimeout(() => { scene.enterVR(); }, 100);
                 });
             }
         });
 
-        // Optimization: Reduce Three.js internal updates
-        scene.addEventListener('render-target-loaded', () => {
-            scene.renderer.setPixelRatio(window.devicePixelRatio > 1.5 ? 1.5 : 1);
+        // CRITICAL PERFORMANCE FIX: 
+        // Force the renderer to stop calculating lens distortion (the "warped" edges)
+        scene.addEventListener('enter-vr', () => {
+            const renderer = scene.renderer;
+            if (renderer.xr.getSession()) {
+                // This prevents the "Cardboard" profile from adding heavy distortion shaders
+                renderer.xr.setFramebufferScaleFactor(1.0);
+            }
         });
     </script>
 </body>
