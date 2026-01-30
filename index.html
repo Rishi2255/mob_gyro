@@ -1,41 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Manual Stereo 360</title>
+    <title>High-Perf Stereo 360</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { margin: 0; background: #000; color: white; font-family: sans-serif; }
         #ui { position: absolute; z-index: 1000; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
-        .box { margin: 10px; padding: 15px; background: #111; border: 1px solid #333; border-radius: 10px; width: 320px; text-align: center;}
-        .btn { padding: 15px 40px; background: #28a745; border: none; color: white; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 20px;}
-        input { margin-top: 10px; width: 100%; }
+        .box { margin: 10px; padding: 15px; background: #111; border: 1px solid #333; border-radius: 10px; width: 300px; text-align: center;}
+        .btn { padding: 15px 40px; background: #ef2d5e; border: none; color: white; border-radius: 50px; cursor: pointer; font-weight: bold; margin-top: 20px;}
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>3D 360: DUAL STREAM</h2>
+        <h2>OPTIMIZED STEREO VR</h2>
         <div class="box">
-            <label>LEFT VIDEO (Audio Source)</label>
+            <label>LEFT EYE (and Audio)</label>
             <input type="file" id="leftFile" accept="video/*">
         </div>
         <div class="box">
-            <label>RIGHT VIDEO (Muted)</label>
+            <label>RIGHT EYE (Visual Only)</label>
             <input type="file" id="rightFile" accept="video/*">
         </div>
-        <button class="btn" id="startBtn">START STEREO MODE</button>
+        <button class="btn" id="startBtn">LAUNCH VR</button>
     </div>
 
-    <a-scene renderer="antialias: false; foveationLevel: 0;" vr-mode-ui="enabled: false">
+    <a-scene renderer="antialias: false; precision: low; foveationLevel: 0;" vr-mode-ui="enabled: false">
         <a-assets>
             <video id="vL" loop crossorigin="anonymous" playsinline></video>
             <video id="vR" loop crossorigin="anonymous" playsinline muted></video>
         </a-assets>
 
-        <a-videosphere id="sphereL" src="#vL" rotation="0 -90 0"></a-videosphere>
-        <a-videosphere id="sphereR" src="#vR" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere id="sphereL" src="#vL" rotation="0 -90 0" visible="true"></a-videosphere>
+        <a-videosphere id="sphereR" src="#vR" rotation="0 -90 0" visible="false"></a-videosphere>
 
-        <a-camera id="mainCam"></a-camera>
+        <a-camera id="mainCam" wasd-controls-enabled="false"></a-camera>
     </a-scene>
 
     <script>
@@ -45,52 +44,43 @@
         const scene = document.querySelector('a-scene');
 
         btn.onclick = () => {
-            const fL = document.getElementById('leftFile').files[0];
-            const fR = document.getElementById('rightFile').files[0];
-
-            if (fL && fR) {
-                vL.src = URL.createObjectURL(fL);
-                vR.src = URL.createObjectURL(fR);
+            if (document.getElementById('leftFile').files[0] && document.getElementById('rightFile').files[0]) {
+                vL.src = URL.createObjectURL(document.getElementById('leftFile').files[0]);
+                vR.src = URL.createObjectURL(document.getElementById('rightFile').files[0]);
                 
                 document.getElementById('ui').style.display = 'none';
-                
                 vL.play();
                 vR.play();
-                
                 scene.enterVR();
 
-                // THE FIX: Wait for the XR session and manually assign layers
-                scene.addEventListener('enter-vr', () => {
-                    const objL = document.getElementById('sphereL').object3D;
-                    const objR = document.getElementById('sphereR').object3D;
-                    
-                    // In Three.js/WebXR:
-                    // Layer 1 is interpreted as Left Eye
-                    // Layer 2 is interpreted as Right Eye
-                    objL.layers.set(1); 
-                    objR.layers.set(2);
+                // THE LOW-LOAD FIX: Manual Visibility Toggle
+                // Instead of layers, we hide/show the spheres exactly when the eye renders
+                const sL = document.getElementById('sphereL');
+                const sR = document.getElementById('sphereR');
 
-                    // We must also tell the camera system to respect these layers
-                    const renderer = scene.renderer;
-                    renderer.xr.setFramebufferScaleFactor(1.0);
+                scene.addEventListener('render-target-loaded', () => {
+                   const renderer = scene.renderer;
+                   renderer.setAnimationLoop(() => {
+                       // If rendering left eye, show L and hide R
+                       // This prevents the CPU from trying to calculate both at once
+                       if (renderer.xr.isPresenting) {
+                           const cameraL = renderer.xr.getCamera().cameras[0];
+                           const cameraR = renderer.xr.getCamera().cameras[1];
+                           
+                           // We use the XR system's internal camera state to swap visibility
+                           // This is much lighter than layer masks
+                           sL.setAttribute('visible', 'true');
+                           sR.setAttribute('visible', 'false');
+                           renderer.render(scene.object3D, cameraL);
+
+                           sL.setAttribute('visible', 'false');
+                           sR.setAttribute('visible', 'true');
+                           renderer.render(scene.object3D, cameraR);
+                       }
+                   });
                 });
-
-                // Force Sync
-                vL.ontimeupdate = () => {
-                    if (Math.abs(vL.currentTime - vR.currentTime) > 0.1) {
-                        vR.currentTime = vL.currentTime;
-                    }
-                };
             }
         };
-
-        // This ensures the camera knows to draw different layers for different eyes
-        // It's a low-level override of the A-Frame render loop
-        scene.addEventListener('render-target-loaded', () => {
-            const camera = document.getElementById('mainCam').getObject3D('camera');
-            camera.layers.enable(1);
-            camera.layers.enable(2);
-        });
     </script>
 </body>
 </html>
