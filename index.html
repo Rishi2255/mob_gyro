@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>3D 360 Stereo Player</title>
+    <title>3D Stereo 360 - Dual Stream</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
@@ -9,70 +9,70 @@
         #ui {
             position: absolute; z-index: 1000; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #111;
+            background: #000;
         }
-        .input-group { margin: 10px; padding: 10px; border: 1px solid #444; border-radius: 8px; }
-        .btn { padding: 15px 30px; background: #ef2d5e; border: none; color: white; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .box { margin: 15px; padding: 20px; border: 1px solid #333; border-radius: 10px; background: #111; }
+        .btn { padding: 15px 40px; background: #0078ff; border: none; color: white; border-radius: 50px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>3D Stereo 360 Setup</h2>
-        <div class="input-group">
-            <label>Left Eye Video (and Audio):</label><br>
+        <h1>STEREO VR CONFIG</h1>
+        <div class="box">
+            <label>LEFT EYE (Master + Audio):</label><br>
             <input type="file" id="leftFile" accept="video/*">
         </div>
-        <div class="input-group">
-            <label>Right Eye Video:</label><br>
+        <div class="box">
+            <label>RIGHT EYE (Visual Only):</label><br>
             <input type="file" id="rightFile" accept="video/*">
         </div>
-        <button class="btn" id="startBtn">START 3D VR</button>
+        <button class="btn" id="startBtn">LAUNCH STEREO VR</button>
     </div>
 
     <a-scene renderer="antialias: false; foveationLevel: 0;" vr-mode-ui="enabled: false">
         <a-assets>
-            <video id="vLeft" loop crossorigin="anonymous" playsinline></video>
-            <video id="vRight" loop crossorigin="anonymous" playsinline muted></video>
+            <video id="vL" loop crossorigin="anonymous" playsinline></video>
+            <video id="vR" loop crossorigin="anonymous" playsinline muted></video>
         </a-assets>
 
-        <a-videosphere src="#vLeft" stereo="eye:left" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere src="#vL" stereo="eye:left" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere src="#vR" stereo="eye:right" rotation="0 -90 0"></a-videosphere>
 
-        <a-videosphere src="#vRight" stereo="eye:right" rotation="0 -90 0"></a-videosphere>
-
-        <a-camera stereocam="eye:left;"></a-camera>
+        <a-camera stereocam="eye:left"></a-camera>
     </a-scene>
 
     <script>
-        const leftInput = document.getElementById('leftFile');
-        const rightInput = document.getElementById('rightFile');
-        const vL = document.getElementById('vLeft');
-        const vR = document.getElementById('vRight');
-        const startBtn = document.getElementById('startBtn');
+        const btn = document.getElementById('startBtn');
+        const vL = document.getElementById('vL');
+        const vR = document.getElementById('vR');
         const scene = document.querySelector('a-scene');
 
-        startBtn.onclick = () => {
-            if (leftInput.files[0] && rightInput.files[0]) {
-                vL.src = URL.createObjectURL(leftInput.files[0]);
-                vR.src = URL.createObjectURL(rightInput.files[0]);
+        btn.onclick = () => {
+            const fL = document.getElementById('leftFile').files[0];
+            const fR = document.getElementById('rightFile').files[0];
+
+            if (fL && fR) {
+                vL.src = URL.createObjectURL(fL);
+                vR.src = URL.createObjectURL(fR);
                 
                 document.getElementById('ui').style.display = 'none';
                 
-                // Sync Playback
+                // Play both videos
                 vL.play();
                 vR.play();
                 
-                // Trigger VR
+                // Manually trigger VR mode
                 scene.enterVR();
 
-                // Keep videos in sync every second
-                setInterval(() => {
-                    if (Math.abs(vL.currentTime - vR.currentTime) > 0.1) {
+                // Frame-level Sync Logic: Keep the right eye tied to the left eye
+                vL.ontimeupdate = () => {
+                    if (Math.abs(vL.currentTime - vR.currentTime) > 0.05) {
                         vR.currentTime = vL.currentTime;
                     }
-                }, 1000);
+                };
             } else {
-                alert("Please select both files!");
+                alert("Please select both a Left and Right video file.");
             }
         };
     </script>
