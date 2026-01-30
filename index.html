@@ -1,33 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>3D Stereo 360 - Dual Stream</title>
+    <title>3D Stereo - Strict Layer Control</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
         body { margin: 0; background: #000; color: white; font-family: sans-serif; }
-        #ui {
-            position: absolute; z-index: 1000; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #000;
-        }
-        .box { margin: 15px; padding: 20px; border: 1px solid #333; border-radius: 10px; background: #111; }
-        .btn { padding: 15px 40px; background: #0078ff; border: none; color: white; border-radius: 50px; cursor: pointer; font-weight: bold; }
+        #ui { position: absolute; z-index: 1000; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
+        .box { margin: 10px; padding: 15px; background: #111; border: 1px solid #333; border-radius: 10px; width: 300px; text-align: center;}
+        .btn { padding: 15px 40px; background: #0078ff; border: none; color: white; border-radius: 50px; cursor: pointer; font-weight: bold; margin-top: 20px;}
+        input { margin-top: 10px; width: 100%; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h1>STEREO VR CONFIG</h1>
+        <h2>STEREO VR PLAYER</h2>
         <div class="box">
-            <label>LEFT EYE (Master + Audio):</label><br>
+            <label>LEFT EYE (with Audio)</label>
             <input type="file" id="leftFile" accept="video/*">
         </div>
         <div class="box">
-            <label>RIGHT EYE (Visual Only):</label><br>
+            <label>RIGHT EYE (Muted)</label>
             <input type="file" id="rightFile" accept="video/*">
         </div>
-        <button class="btn" id="startBtn">LAUNCH STEREO VR</button>
+        <button class="btn" id="startBtn">START 3D MODE</button>
     </div>
 
     <a-scene renderer="antialias: false; foveationLevel: 0;" vr-mode-ui="enabled: false">
@@ -36,10 +33,10 @@
             <video id="vR" loop crossorigin="anonymous" playsinline muted></video>
         </a-assets>
 
-        <a-videosphere src="#vL" stereo="eye:left" rotation="0 -90 0"></a-videosphere>
-        <a-videosphere src="#vR" stereo="eye:right" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere id="sphereL" src="#vL" stereo="eye:left" rotation="0 -90 0"></a-videosphere>
+        <a-videosphere id="sphereR" src="#vR" stereo="eye:right" rotation="0 -90 0"></a-videosphere>
 
-        <a-camera stereocam="eye:left"></a-camera>
+        <a-camera id="mainCam" stereocam="eye:left;"></a-camera>
     </a-scene>
 
     <script>
@@ -58,21 +55,33 @@
                 
                 document.getElementById('ui').style.display = 'none';
                 
-                // Play both videos
                 vL.play();
                 vR.play();
                 
-                // Manually trigger VR mode
+                // 1. Enter VR
                 scene.enterVR();
 
-                // Frame-level Sync Logic: Keep the right eye tied to the left eye
+                // 2. Force Layer Separation
+                // Layer 1 is for Left eye, Layer 2 is for Right eye
+                setTimeout(() => {
+                    const objL = document.getElementById('sphereL').object3D;
+                    const objR = document.getElementById('sphereR').object3D;
+                    
+                    // Reset layers then assign specifically
+                    objL.layers.set(1); 
+                    objR.layers.set(2);
+                    
+                    console.log("Layers manually forced: Left=1, Right=2");
+                }, 1000);
+
+                // Syncing
                 vL.ontimeupdate = () => {
                     if (Math.abs(vL.currentTime - vR.currentTime) > 0.05) {
                         vR.currentTime = vL.currentTime;
                     }
                 };
             } else {
-                alert("Please select both a Left and Right video file.");
+                alert("Please select both files.");
             }
         };
     </script>
