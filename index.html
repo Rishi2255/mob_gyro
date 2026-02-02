@@ -1,69 +1,84 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 Stereo Upload Player</title>
+    <title>360 Stereo Player - Fixed</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
       #ui-overlay {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        z-index: 1000;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 15px;
-        border-radius: 8px;
-        color: white;
-        font-family: sans-serif;
+        position: absolute; top: 20px; left: 20px; z-index: 1000;
+        background: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 12px;
+        color: white; font-family: system-ui, sans-serif;
       }
-      button, input { margin-top: 10px; cursor: pointer; }
+      .controls { margin-top: 15px; display: flex; gap: 10px; flex-direction: column; }
+      button { padding: 8px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
+      .primary { background: #4CAF50; color: white; }
     </style>
   </head>
   <body>
 
     <div id="ui-overlay">
-      <strong>360° Stereo Player</strong><br>
-      <input type="file" id="fileInput" accept="video/*"><br>
-      <button onclick="toggleFullScreen()">Toggle Fullscreen</button>
+      <strong>360° VR Video Setup</strong>
+      <div class="controls">
+        <label>1. Load Video:</label>
+        <input type="file" id="fileInput" accept="video/*">
+        
+        <label>2. Controls:</label>
+        <button class="primary" onclick="playVideo()">Force Play / Unmute</button>
+        <button onclick="toggleFullScreen()">Fullscreen</button>
+      </div>
+      <p id="status" style="font-size: 0.8em; color: #aaa;">Status: Waiting for file...</p>
     </div>
 
-    <a-scene id="mainScene" embedded>
+    <a-scene>
       <a-assets>
-        <video id="videoAsset" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
+        <video id="videoAsset" 
+               autoplay="false" 
+               loop="true" 
+               crossorigin="anonymous" 
+               playsinline 
+               webkit-playsinline 
+               muted></video>
       </a-assets>
 
       <a-entity camera look-controls stereo="eye: left"></a-entity>
 
-      <a-videosphere id="sphere" src="#videoAsset" stereo="eye: left; split: horizontal" rotation="0 -90 0"></a-videosphere>
+      <a-videosphere id="sphere" src="#videoAsset" stereo="eye: left; split: horizontal"></a-videosphere>
 
-      <a-sky color="#111"></a-sky>
+      <a-sky color="#000"></a-sky>
     </a-scene>
 
     <script>
       const fileInput = document.getElementById('fileInput');
       const video = document.getElementById('videoAsset');
-      const scene = document.getElementById('mainScene');
+      const status = document.getElementById('status');
 
-      // Handle File Upload
       fileInput.addEventListener('change', function() {
         const file = this.files[0];
         if (file) {
           const url = URL.createObjectURL(file);
           video.src = url;
-          video.play();
-          // Hide overlay once video starts for immersion (optional)
-          // document.getElementById('ui-overlay').style.display = 'none';
+          video.load(); // Vital for initializing the buffer
+          status.innerText = "Status: Video Loaded. Click Play.";
+          status.style.color = "#4CAF50";
         }
       });
 
-      // Fullscreen Toggle
+      function playVideo() {
+        // Browsers require a user gesture to unmute and play
+        video.muted = false;
+        video.play().then(() => {
+          status.innerText = "Status: Playing...";
+        }).catch(err => {
+          status.innerText = "Error: " + err.message;
+        });
+      }
+
       function toggleFullScreen() {
         if (!document.fullscreenElement) {
-            scene.requestFullscreen().catch(err => {
-                alert(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
+          document.documentElement.requestFullscreen();
         } else {
-            document.exitFullscreen();
+          document.exitFullscreen();
         }
       }
     </script>
