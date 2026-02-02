@@ -1,85 +1,48 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 Stereo Player - Fixed</title>
+    <title>360 Stereo - Top/Bottom Fix</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
-      #ui-overlay {
-        position: absolute; top: 20px; left: 20px; z-index: 1000;
-        background: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 12px;
-        color: white; font-family: system-ui, sans-serif;
-      }
-      .controls { margin-top: 15px; display: flex; gap: 10px; flex-direction: column; }
-      button { padding: 8px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
-      .primary { background: #4CAF50; color: white; }
+      #ui { position: absolute; top: 10px; left: 10px; z-index: 999; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 5px; font-family: sans-serif; }
+      button { cursor: pointer; padding: 5px 10px; margin-top: 5px; }
     </style>
   </head>
   <body>
 
-    <div id="ui-overlay">
-      <strong>360° VR Video Setup</strong>
-      <div class="controls">
-        <label>1. Load Video:</label>
-        <input type="file" id="fileInput" accept="video/*">
-        
-        <label>2. Controls:</label>
-        <button class="primary" onclick="playVideo()">Force Play / Unmute</button>
-        <button onclick="toggleFullScreen()">Fullscreen</button>
-      </div>
-      <p id="status" style="font-size: 0.8em; color: #aaa;">Status: Waiting for file...</p>
+    <div id="ui">
+      <b>360° Top-Bottom Player</b><br>
+      <input type="file" id="loader" accept="video/*"><br>
+      <button onclick="playVideo()">PLAY / UNMUTE</button>
+      <button onclick="toggleFS()">FULLSCREEN</button>
     </div>
 
     <a-scene>
       <a-assets>
-        <video id="videoAsset" 
-               autoplay="false" 
-               loop="true" 
-               crossorigin="anonymous" 
-               playsinline 
-               webkit-playsinline 
-               muted></video>
+        <video id="v" loop="true" crossorigin="anonymous" playsinline webkit-playsinline muted></video>
       </a-assets>
 
-      <a-entity camera look-controls stereo="eye: left"></a-entity>
+      <a-entity camera look-controls="pointerLockEnabled: false" stereo="eye: left"></a-entity>
 
-      <a-videosphere id="sphere" src="#videoAsset" stereo="eye: left; split: horizontal"></a-videosphere>
+      <a-videosphere src="#v" stereo="eye: left; split: vertical" rotation="0 -90 0"></a-videosphere>
 
       <a-sky color="#000"></a-sky>
     </a-scene>
 
     <script>
-      const fileInput = document.getElementById('fileInput');
-      const video = document.getElementById('videoAsset');
-      const status = document.getElementById('status');
+      const v = document.getElementById('v');
+      
+      document.getElementById('loader').onchange = function() {
+        v.src = URL.createObjectURL(this.files[0]);
+        v.load();
+      };
 
-      fileInput.addEventListener('change', function() {
-        const file = this.files[0];
-        if (file) {
-          const url = URL.createObjectURL(file);
-          video.src = url;
-          video.load(); // Vital for initializing the buffer
-          status.innerText = "Status: Video Loaded. Click Play.";
-          status.style.color = "#4CAF50";
-        }
-      });
-
-      function playVideo() {
-        // Browsers require a user gesture to unmute and play
-        video.muted = false;
-        video.play().then(() => {
-          status.innerText = "Status: Playing...";
-        }).catch(err => {
-          status.innerText = "Error: " + err.message;
-        });
-      }
-
-      function toggleFullScreen() {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen();
-        } else {
-          document.exitFullscreen();
-        }
+      function playVideo() { v.muted = false; v.play(); }
+      
+      function toggleFS() {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
       }
     </script>
   </body>
