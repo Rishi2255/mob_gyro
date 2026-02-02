@@ -1,49 +1,90 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 Stereo - Top/Bottom Fix</title>
+    <title>360 Stereo VR Player</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
-      #ui { position: absolute; top: 10px; left: 10px; z-index: 999; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 5px; font-family: sans-serif; }
-      button { cursor: pointer; padding: 5px 10px; margin-top: 5px; }
+      body { margin: 0; overflow: hidden; background: #000; }
+      #setup-ui {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9999; background: rgba(20, 20, 20, 0.95); color: white;
+        padding: 30px; border-radius: 15px; text-align: center;
+        font-family: sans-serif; border: 1px solid #444;
+      }
+      input { margin: 20px 0; display: block; width: 100%; }
+      button { 
+        background: #007bff; color: white; border: none; padding: 12px 24px; 
+        border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;
+      }
+      button:hover { background: #0056b3; }
+      .hidden { display: none !important; }
     </style>
   </head>
   <body>
 
-    <div id="ui">
-      <b>360° Top-Bottom Player</b><br>
-      <input type="file" id="loader" accept="video/*"><br>
-      <button onclick="playVideo()">PLAY / UNMUTE</button>
-      <button onclick="toggleFS()">FULLSCREEN</button>
+    <div id="setup-ui">
+      <h2>360° VR Video Player</h2>
+      <p>Select your <b>Top-Bottom</b> stereo video:</p>
+      <input type="file" id="fileLoader" accept="video/*">
+      <button id="startBtn" class="hidden">PLAY IN FULLSCREEN</button>
     </div>
 
-    <a-scene>
+    <a-scene id="vrScene" style="display:none">
       <a-assets>
-        <video id="v" loop="true" crossorigin="anonymous" playsinline webkit-playsinline muted></video>
+        <video id="videoAsset" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
       </a-assets>
 
-      <a-entity camera look-controls="pointerLockEnabled: false" stereo="eye: left"></a-entity>
+      <a-entity id="cam" camera look-controls stereo="eye: left"></a-entity>
 
-      <a-videosphere src="#v" stereo="eye: left; split: vertical" rotation="0 -90 0"></a-videosphere>
+      <a-videosphere id="sphere" src="#videoAsset" stereo="eye: left; split: vertical" rotation="0 -90 0"></a-videosphere>
 
       <a-sky color="#000"></a-sky>
     </a-scene>
 
     <script>
-      const v = document.getElementById('v');
-      
-      document.getElementById('loader').onchange = function() {
-        v.src = URL.createObjectURL(this.files[0]);
-        v.load();
-      };
+      const fileLoader = document.getElementById('fileLoader');
+      const startBtn = document.getElementById('startBtn');
+      const video = document.getElementById('videoAsset');
+      const scene = document.getElementById('vrScene');
+      const ui = document.getElementById('setup-ui');
 
-      function playVideo() { v.muted = false; v.play(); }
-      
-      function toggleFS() {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        else document.exitFullscreen();
-      }
+      // 1. When user selects a file
+      fileLoader.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          video.src = URL.createObjectURL(file);
+          video.load();
+          startBtn.classList.remove('hidden'); // Show the play button
+        }
+      });
+
+      // 2. When user clicks Play (Triggers Fullscreen + Video)
+      startBtn.addEventListener('click', () => {
+        // Enter Fullscreen
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen();
+        }
+
+        // Show Scene, Hide UI
+        scene.style.display = "block";
+        ui.classList.add('hidden');
+
+        // Force Play
+        video.play().catch(err => console.log("Video play failed:", err));
+        
+        // Refresh the sphere texture to prevent blank screen
+        document.getElementById('sphere').setAttribute('src', '');
+        document.getElementById('sphere').setAttribute('src', '#videoAsset');
+      });
+
+      // Auto-exit UI if we leave fullscreen
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          ui.classList.remove('hidden');
+          video.pause();
+        }
+      });
     </script>
   </body>
 </html>
