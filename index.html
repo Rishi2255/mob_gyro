@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 Stereo - Top/Bottom Eye Split</title>
+    <title>360 Stereo - Manual UV Split</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
       body { margin: 0; background: #000; color: white; font-family: sans-serif; }
-      #ui { position: absolute; z-index: 100; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; }
-      button { padding: 10px 20px; background: #2196F3; color: white; border: none; cursor: pointer; }
+      #ui { position: absolute; z-index: 100; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0,0,0,0.9); padding: 30px; border-radius: 15px; }
+      button { padding: 15px 30px; background: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
       .hidden { display: none; }
     </style>
   </head>
   <body>
 
     <div id="ui">
-      <h3>Karate 360 Stereo Player</h3>
+      <h3>360° Top-Bottom Stereo Player</h3>
       <input type="file" id="fileInput" accept="video/mp4"><br><br>
-      <button id="playBtn" class="hidden">START VR VIEW</button>
+      <button id="playBtn" class="hidden">PLAY IN 3D</button>
+      <p id="status"></p>
     </div>
 
     <a-scene id="scene" style="display:none">
@@ -24,17 +24,37 @@
         <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
-      <a-entity id="cameraRig">
-        <a-entity camera look-controls stereo="eye: left"></a-entity>
+      <a-entity id="rig">
+          <a-entity camera look-controls></a-entity>
       </a-entity>
 
-      <a-videosphere src="#v" stereo="eye: left; split: vertical" rotation="0 -90 0"></a-videosphere>
+      <a-videosphere src="#v" 
+                     segments-height="64" 
+                     segments-width="64"
+                     rotation="0 -90 0"
+                     material="repeat: 1 0.5; offset: 0 0.5"
+                     stereo="eye: left">
+      </a-videosphere>
 
-      <a-videosphere src="#v" stereo="eye: right; split: vertical" rotation="0 -90 0"></a-videosphere>
-
+      <a-videosphere src="#v" 
+                     segments-height="64" 
+                     segments-width="64"
+                     rotation="0 -90 0"
+                     material="repeat: 1 0.5; offset: 0 0"
+                     stereo="eye: right">
+      </a-videosphere>
     </a-scene>
 
     <script>
+      // This small script ensures A-Frame understands the "stereo" attribute for the eyes
+      AFRAME.registerComponent('stereo', {
+        schema: { eye: { default: 'left' } },
+        init: function () {
+          this.el.setAttribute('layers', this.data.eye === 'left' ? 1 : 2);
+          this.el.object3D.layers.set(this.data.eye === 'left' ? 1 : 2);
+        }
+      });
+
       const fileInput = document.getElementById('fileInput');
       const playBtn = document.getElementById('playBtn');
       const video = document.getElementById('v');
@@ -46,16 +66,11 @@
       };
 
       playBtn.onclick = () => {
-        // Request Fullscreen
-        const el = document.documentElement;
-        if (el.requestFullscreen) el.requestFullscreen();
-        
+        document.documentElement.requestFullscreen().catch(() => {});
         document.getElementById('scene').style.display = "block";
         document.getElementById('ui').classList.add('hidden');
-        
         video.play();
-        // Skip the initial black frames in your karate video
-        video.currentTime = 0.5; 
+        video.currentTime = 0.5; // Skip black frames
       };
     </script>
   </body>
