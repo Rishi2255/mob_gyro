@@ -5,86 +5,75 @@
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
-      body { margin: 0; overflow: hidden; background: #000; }
-      #setup-ui {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        z-index: 9999; background: rgba(20, 20, 20, 0.95); color: white;
-        padding: 30px; border-radius: 15px; text-align: center;
-        font-family: sans-serif; border: 1px solid #444;
+      body { margin: 0; background: #000; font-family: sans-serif; }
+      #overlay {
+        position: absolute; z-index: 999; top: 50%; left: 50%;
+        transform: translate(-50%, -50%); text-align: center; color: white;
+        background: rgba(0,0,0,0.9); padding: 40px; border-radius: 20px;
       }
-      input { margin: 20px 0; display: block; width: 100%; }
       button { 
-        background: #007bff; color: white; border: none; padding: 12px 24px; 
-        border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;
+        padding: 15px 30px; font-size: 18px; cursor: pointer; 
+        background: #e91e63; color: white; border: none; border-radius: 5px;
       }
-      button:hover { background: #0056b3; }
-      .hidden { display: none !important; }
+      .hidden { display: none; }
     </style>
   </head>
   <body>
 
-    <div id="setup-ui">
-      <h2>360° VR Video Player</h2>
-      <p>Select your <b>Top-Bottom</b> stereo video:</p>
-      <input type="file" id="fileLoader" accept="video/*">
-      <button id="startBtn" class="hidden">PLAY IN FULLSCREEN</button>
+    <div id="overlay">
+      <h1>VR Video Player</h1>
+      <input type="file" id="fileInput" accept="video/mp4"><br><br>
+      <button id="btn" class="hidden">ENTER FULLSCREEN & PLAY</button>
+      <p id="status"></p>
     </div>
 
-    <a-scene id="vrScene" style="display:none">
+    <a-scene id="scene" style="display:none" relevance="fixed">
       <a-assets>
-        <video id="videoAsset" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
+        <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
-      <a-entity id="cam" camera look-controls stereo="eye: left"></a-entity>
+      <a-entity camera look-controls="magicWindowTrackingEnabled: false; touchEnabled: true" stereo="eye: left"></a-entity>
 
-      <a-videosphere id="sphere" src="#videoAsset" stereo="eye: left; split: vertical" rotation="0 -90 0"></a-videosphere>
-
-      <a-sky color="#000"></a-sky>
+      <a-videosphere src="#v" stereo="eye: left; split: vertical" rotation="0 -90 0"></a-videosphere>
     </a-scene>
 
     <script>
-      const fileLoader = document.getElementById('fileLoader');
-      const startBtn = document.getElementById('startBtn');
-      const video = document.getElementById('videoAsset');
-      const scene = document.getElementById('vrScene');
-      const ui = document.getElementById('setup-ui');
+      const fileInput = document.getElementById('fileInput');
+      const btn = document.getElementById('btn');
+      const video = document.getElementById('v');
+      const status = document.getElementById('status');
 
-      // 1. When user selects a file
-      fileLoader.addEventListener('change', (e) => {
+      fileInput.onchange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-          video.src = URL.createObjectURL(file);
-          video.load();
-          startBtn.classList.remove('hidden'); // Show the play button
-        }
-      });
-
-      // 2. When user clicks Play (Triggers Fullscreen + Video)
-      startBtn.addEventListener('click', () => {
-        // Enter Fullscreen
-        if (document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen();
-        }
-
-        // Show Scene, Hide UI
-        scene.style.display = "block";
-        ui.classList.add('hidden');
-
-        // Force Play
-        video.play().catch(err => console.log("Video play failed:", err));
+        video.src = URL.createObjectURL(file);
+        status.innerText = "Loading video data...";
         
-        // Refresh the sphere texture to prevent blank screen
-        document.getElementById('sphere').setAttribute('src', '');
-        document.getElementById('sphere').setAttribute('src', '#videoAsset');
-      });
+        // Wait for video to be ready
+        video.oncanplaythrough = () => {
+          status.innerText = "Ready!";
+          btn.classList.remove('hidden');
+        };
+      };
 
-      // Auto-exit UI if we leave fullscreen
-      document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement) {
-          ui.classList.remove('hidden');
-          video.pause();
-        }
-      });
+      btn.onclick = () => {
+        // 1. Request Fullscreen
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+
+        // 2. Reveal Scene
+        document.getElementById('scene').style.display = "block";
+        document.getElementById('overlay').classList.add('hidden');
+
+        // 3. Force start and jump past the "black" frame
+        video.play();
+        video.currentTime = 0.1; 
+
+        // 4. Update A-Frame manually to ensure the texture isn't blank
+        setTimeout(() => {
+          document.querySelector('a-videosphere').components.material.material.map.needsUpdate = true;
+        }, 500);
+      };
     </script>
   </body>
 </html>
