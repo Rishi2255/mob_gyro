@@ -1,44 +1,53 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 Stereo - Manual UV Split</title>
+    <title>360 VR Player - iOS Fixed</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-      body { margin: 0; background: #000; color: white; font-family: sans-serif; }
-      #ui { position: absolute; z-index: 100; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0,0,0,0.9); padding: 30px; border-radius: 15px; }
-      button { padding: 15px 30px; background: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
-      .hidden { display: none; }
+      body { margin: 0; background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+      #ui { 
+        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        background: rgba(0,0,0,0.9); text-align: center; padding: 20px; box-sizing: border-box;
+      }
+      button { 
+        padding: 20px 40px; background: #007AFF; color: white; border: none; 
+        border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
+      }
+      input { margin-bottom: 30px; }
+      .hidden { display: none !important; }
     </style>
   </head>
   <body>
 
     <div id="ui">
-      <h3>360° Top-Bottom Stereo Player</h3>
-      <input type="file" id="fileInput" accept="video/mp4"><br><br>
-      <button id="playBtn" class="hidden">PLAY IN 3D</button>
-      <p id="status"></p>
+      <h1>360 Stereo Player</h1>
+      <input type="file" id="fileInput" accept="video/mp4">
+      <button id="startBtn" class="hidden">ALLOW SENSORS & PLAY</button>
+      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a video to start</p>
     </div>
 
-    <a-scene id="scene" style="display:none">
+    <a-scene id="scene" style="display:none" loading-screen="dotsColor: white; backgroundColor: black">
       <a-assets>
-        <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
+        <video id="v" 
+               crossorigin="anonymous" 
+               playsinline 
+               webkit-playsinline 
+               autoplay="false"
+               loop="true"></video>
       </a-assets>
 
       <a-entity id="rig">
-          <a-entity camera look-controls></a-entity>
+          <a-entity id="camera" camera look-controls></a-entity>
       </a-entity>
 
       <a-videosphere src="#v" 
-                     segments-height="64" 
-                     segments-width="64"
                      rotation="0 -90 0"
                      material="repeat: 1 0.5; offset: 0 0.5"
                      stereo="eye: left">
       </a-videosphere>
 
       <a-videosphere src="#v" 
-                     segments-height="64" 
-                     segments-width="64"
                      rotation="0 -90 0"
                      material="repeat: 1 0.5; offset: 0 0"
                      stereo="eye: right">
@@ -46,7 +55,7 @@
     </a-scene>
 
     <script>
-      // This small script ensures A-Frame understands the "stereo" attribute for the eyes
+      // Register the eye-splitting component
       AFRAME.registerComponent('stereo', {
         schema: { eye: { default: 'left' } },
         init: function () {
@@ -56,21 +65,50 @@
       });
 
       const fileInput = document.getElementById('fileInput');
-      const playBtn = document.getElementById('playBtn');
+      const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('v');
+      const scene = document.getElementById('scene');
+      const ui = document.getElementById('ui');
 
       fileInput.onchange = (e) => {
         video.src = URL.createObjectURL(e.target.files[0]);
         video.load();
-        playBtn.classList.remove('hidden');
+        startBtn.classList.remove('hidden');
+        document.getElementById('msg').innerText = "File loaded. Tap button to start.";
       };
 
-      playBtn.onclick = () => {
-        document.documentElement.requestFullscreen().catch(() => {});
-        document.getElementById('scene').style.display = "block";
-        document.getElementById('ui').classList.add('hidden');
+      // iOS Permission Handler
+      async function requestPermissions() {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission !== 'granted') {
+              alert('Permission to sensors is required for 360 movement.');
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      }
+
+      startBtn.onclick = async () => {
+        // 1. Ask for sensor permission (Required for iOS 13+)
+        await requestPermissions();
+
+        // 2. Fullscreen
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+        }
+
+        // 3. Setup Scene
+        ui.classList.add('hidden');
+        scene.style.display = "block";
+        
+        // 4. iOS Video "Kickstart"
         video.play();
-        video.currentTime = 0.5; // Skip black frames
+        video.currentTime = 0.1;
       };
     </script>
   </body>
