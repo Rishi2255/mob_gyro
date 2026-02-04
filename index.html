@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Centered Fix</title>
+    <title>360 VR Player - Grey Styled Button</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
@@ -21,8 +21,8 @@
         background: rgba(0,0,0,0.9); text-align: center; padding: 20px; box-sizing: border-box;
       }
 
-      button { 
-        padding: 20px 40px; background: #007AFF; color: white; border: none; 
+      button#startBtn { 
+        padding: 20px 40px; background: #4A4A4A; color: white; border: none; 
         border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
       }
 
@@ -32,25 +32,31 @@
       /* FULL CENTER FIX FOR VR BUTTON */
       .a-enter-vr {
         position: fixed !important;
-        /* Reset A-Frame defaults */
         right: auto !important; 
         bottom: auto !important;
-        /* Set to exact middle */
         top: 50% !important;
         left: 50% !important;
         transform: translate(-50%, -50%) !important;
         margin: 0 !important;
-        width: 120px !important; /* Fixed width for centering calculation */
-        height: 70px !important;
+        width: 100px !important; 
+        height: 60px !important;
         z-index: 9999;
       }
 
+      /* Button Styling: Grey background, no border, white icon */
       .a-enter-vr-button {
         width: 100% !important;
         height: 100% !important;
-        background-color: #007AFF !important;
-        border-radius: 15px !important;
-        box-shadow: 0 0 20px rgba(0,0,0,1) !important;
+        background-color: #333333 !important; /* Dark Grey */
+        border: none !important;              /* No border */
+        border-radius: 12px !important;
+        background-size: 70% !important;       /* Adjust icon size */
+        filter: brightness(1) invert(0) !important; /* Ensures icon visibility */
+        transition: background-color 0.2s;
+      }
+
+      .a-enter-vr-button:hover {
+        background-color: #4A4A4A !important; /* Lighter grey on hover */
       }
 
       /* Hide AR button completely */
