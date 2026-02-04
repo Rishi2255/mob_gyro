@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - iOS Forced VR</title>
+    <title>360 VR Player - Instant Dual Screen</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
@@ -10,11 +10,11 @@
         overflow: hidden;
       }
 
-      /* Initial UI Screen */
+      /* Upload UI */
       #ui { 
         position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: rgba(0,0,0,1); text-align: center; padding: 20px; box-sizing: border-box;
+        background: #000; text-align: center; padding: 20px; box-sizing: border-box;
       }
 
       button#startBtn { 
@@ -22,27 +22,11 @@
         border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
       }
 
-      input { margin-bottom: 30px; border: 1px solid #444; padding: 10px; border-radius: 8px; }
+      input { margin-bottom: 30px; }
       .hidden { display: none !important; }
 
-      /* Centered VR Button (The 'Emergency' Fallback) */
-      .a-enter-vr {
-        position: fixed !important;
-        right: auto !important; bottom: auto !important;
-        top: 50% !important; left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        margin: 0 !important;
-        width: 120px !important; height: 70px !important;
-        z-index: 9999;
-      }
-
-      .a-enter-vr-button {
-        width: 100% !important; height: 100% !important;
-        background-color: #333333 !important;
-        border: none !important; border-radius: 12px !important;
-        box-shadow: 0 0 30px rgba(0,0,0,0.8) !important;
-      }
-
+      /* HIDE THE A-FRAME BUTTON COMPLETELY */
+      .a-enter-vr { display: none !important; }
       .a-enter-ar { display: none !important; }
     </style>
   </head>
@@ -50,8 +34,7 @@
 
     <div id="ui">
       <h1>360 Stereo Player</h1>
-      <p>Select your 360 SBS video file:</p>
-      <input type="file" id="fileInput" accept="video/mp4,video/x-m4v,video/*">
+      <input type="file" id="fileInput" accept="video/mp4,video/*">
       <button id="startBtn" class="hidden">ENTER VR NOW</button>
       <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Waiting for file...</p>
     </div>
@@ -59,7 +42,7 @@
     <a-scene 
       id="scene" 
       style="display:none" 
-      vr-mode-ui="enabled: true; enterAREnabled: false"
+      vr-mode-ui="enabled: false"
       loading-screen="dotsColor: white; backgroundColor: black">
       
       <a-assets>
@@ -75,7 +58,7 @@
     </a-scene>
 
     <script>
-      // Eye-splitting logic for VR Cardboard
+      // Eye-splitting logic
       AFRAME.registerComponent('stereo', {
         schema: { eye: { default: 'left' } },
         init: function () {
@@ -92,47 +75,42 @@
 
       fileInput.onchange = (e) => {
         if (e.target.files[0]) {
-          const fileURL = URL.createObjectURL(e.target.files[0]);
-          video.src = fileURL;
+          video.src = URL.createObjectURL(e.target.files[0]);
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "File ready! Put on your headset after tapping below.";
+          document.getElementById('msg').innerText = "File loaded. Tap below to start Dual-Screen VR.";
         }
       };
 
-      async function handleStart() {
-        // 1. iOS Motion Permission (Must be triggered by click)
+      startBtn.onclick = async () => {
+        // 1. iOS Motion Permission
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try {
             await DeviceOrientationEvent.requestPermission();
-          } catch (err) {
-            console.error("Orientation permission rejected");
-          }
+          } catch (err) { console.error(err); }
         }
         
         // 2. Fullscreen
-        const doc = window.document.documentElement;
+        const doc = document.documentElement;
         if (doc.requestFullscreen) doc.requestFullscreen();
         else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
 
-        // 3. Setup Scene & Video
+        // 3. Setup Scene
         ui.classList.add('hidden');
         sceneEl.style.display = "block";
         video.play();
         video.currentTime = 0.1;
 
-        // 4. Force Enter VR Mode
-        // We use a small timeout to let the scene initialize before switching to VR
-        setTimeout(() => {
-          if (sceneEl.hasLoaded) {
+        // 4. THE FIX: Force Dual-Screen VR Mode immediately
+        // We trigger it right here in the click handler to satisfy iOS security
+        if (sceneEl.hasLoaded) {
+          sceneEl.enterVR();
+        } else {
+          sceneEl.addEventListener('loaded', () => {
             sceneEl.enterVR();
-          } else {
-            sceneEl.addEventListener('loaded', () => sceneEl.enterVR());
-          }
-        }, 100);
-      }
-
-      startBtn.addEventListener('click', handleStart);
+          });
+        }
+      };
     </script>
   </body>
 </html>
