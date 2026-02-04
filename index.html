@@ -1,24 +1,20 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Auto VR Mode</title>
+    <title>360 VR Player - iOS Forced VR</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
-        margin: 0; 
-        background: #000; 
-        color: white; 
+        margin: 0; background: #000; color: white; 
         font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
         overflow: hidden;
       }
 
       /* Initial UI Screen */
       #ui { 
-        position: absolute; 
-        z-index: 100; 
-        top: 0; left: 0; width: 100%; height: 100%;
+        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: rgba(0,0,0,0.9); text-align: center; padding: 20px; box-sizing: border-box;
+        background: rgba(0,0,0,1); text-align: center; padding: 20px; box-sizing: border-box;
       }
 
       button#startBtn { 
@@ -26,29 +22,25 @@
         border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
       }
 
-      input { margin-bottom: 30px; }
+      input { margin-bottom: 30px; border: 1px solid #444; padding: 10px; border-radius: 8px; }
       .hidden { display: none !important; }
 
-      /* Centered VR Button (Backup in case they exit VR) */
+      /* Centered VR Button (The 'Emergency' Fallback) */
       .a-enter-vr {
         position: fixed !important;
-        right: auto !important; 
-        bottom: auto !important;
-        top: 50% !important;
-        left: 50% !important;
+        right: auto !important; bottom: auto !important;
+        top: 50% !important; left: 50% !important;
         transform: translate(-50%, -50%) !important;
         margin: 0 !important;
-        width: 100px !important; 
-        height: 60px !important;
+        width: 120px !important; height: 70px !important;
         z-index: 9999;
       }
 
       .a-enter-vr-button {
-        width: 100% !important;
-        height: 100% !important;
+        width: 100% !important; height: 100% !important;
         background-color: #333333 !important;
-        border: none !important;
-        border-radius: 12px !important;
+        border: none !important; border-radius: 12px !important;
+        box-shadow: 0 0 30px rgba(0,0,0,0.8) !important;
       }
 
       .a-enter-ar { display: none !important; }
@@ -58,9 +50,10 @@
 
     <div id="ui">
       <h1>360 Stereo Player</h1>
-      <input type="file" id="fileInput" accept="video/mp4">
-      <button id="startBtn" class="hidden">LAUNCH IN VR MODE</button>
-      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a 360 video to start</p>
+      <p>Select your 360 SBS video file:</p>
+      <input type="file" id="fileInput" accept="video/mp4,video/x-m4v,video/*">
+      <button id="startBtn" class="hidden">ENTER VR NOW</button>
+      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Waiting for file...</p>
     </div>
 
     <a-scene 
@@ -73,7 +66,7 @@
         <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
-      <a-entity id="rig">
+      <a-entity id="cameraRig">
           <a-entity id="camera" camera look-controls></a-entity>
       </a-entity>
 
@@ -82,6 +75,7 @@
     </a-scene>
 
     <script>
+      // Eye-splitting logic for VR Cardboard
       AFRAME.registerComponent('stereo', {
         schema: { eye: { default: 'left' } },
         init: function () {
@@ -98,48 +92,47 @@
 
       fileInput.onchange = (e) => {
         if (e.target.files[0]) {
-          video.src = URL.createObjectURL(e.target.files[0]);
+          const fileURL = URL.createObjectURL(e.target.files[0]);
+          video.src = fileURL;
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "File loaded. Ready for VR.";
+          document.getElementById('msg').innerText = "File ready! Put on your headset after tapping below.";
         }
       };
 
-      async function requestPermissions() {
+      async function handleStart() {
+        // 1. iOS Motion Permission (Must be triggered by click)
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try {
             await DeviceOrientationEvent.requestPermission();
-          } catch (e) { console.error(e); }
+          } catch (err) {
+            console.error("Orientation permission rejected");
+          }
         }
-      }
-
-      startBtn.onclick = async () => {
-        // 1. Sensore Permission
-        await requestPermissions();
         
-        // 2. Browser Fullscreen
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
-        } else if (document.documentElement.webkitRequestFullscreen) {
-            document.documentElement.webkitRequestFullscreen();
-        }
+        // 2. Fullscreen
+        const doc = window.document.documentElement;
+        if (doc.requestFullscreen) doc.requestFullscreen();
+        else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
 
-        // 3. Show Scene
+        // 3. Setup Scene & Video
         ui.classList.add('hidden');
         sceneEl.style.display = "block";
-        
-        // 4. Start Video
         video.play();
         video.currentTime = 0.1;
 
-        // 5. TRIGGER VR MODE AUTOMATICALLY
-        // We wait a tiny bit to ensure the scene has rendered its first frame
-        if (sceneEl.hasLoaded) {
+        // 4. Force Enter VR Mode
+        // We use a small timeout to let the scene initialize before switching to VR
+        setTimeout(() => {
+          if (sceneEl.hasLoaded) {
             sceneEl.enterVR();
-        } else {
+          } else {
             sceneEl.addEventListener('loaded', () => sceneEl.enterVR());
-        }
-      };
+          }
+        }, 100);
+      }
+
+      startBtn.addEventListener('click', handleStart);
     </script>
   </body>
 </html>
