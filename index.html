@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Centered Button</title>
+    <title>360 VR Player - Centered VR Only</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
@@ -44,7 +44,7 @@
       input { margin-bottom: 30px; }
       .hidden { display: none !important; }
 
-      /* Force A-Frame's VR Button to the Middle */
+      /* Force the VR Button container to the dead center */
       .a-enter-vr {
         position: fixed !important;
         bottom: 50% !important;
@@ -54,12 +54,18 @@
         z-index: 999;
       }
 
-      /* Make the VR button slightly larger for easier tapping in the center */
+      /* Style the VR button specifically */
       .a-enter-vr-button {
-        width: 80px !important;
-        height: 50px !important;
-        background-color: rgba(255, 255, 255, 0.2) !important;
-        border-radius: 8px !important;
+        width: 100px !important;
+        height: 60px !important;
+        background-color: #007AFF !important; /* Blue background for better visibility */
+        border-radius: 12px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+      }
+
+      /* Hide the AR button if it tries to appear */
+      .a-enter-ar {
+        display: none !important;
       }
     </style>
   </head>
@@ -72,7 +78,12 @@
       <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a 360 video to start</p>
     </div>
 
-    <a-scene id="scene" style="display:none" loading-screen="dotsColor: white; backgroundColor: black">
+    <a-scene 
+      id="scene" 
+      style="display:none" 
+      vr-mode-ui="enabled: true; enterAREnabled: false"
+      loading-screen="dotsColor: white; backgroundColor: black">
+      
       <a-assets>
         <video id="v" 
                crossorigin="anonymous" 
@@ -123,13 +134,12 @@
         }
       };
 
-      // iOS Permission Handler
       async function requestPermissions() {
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try {
             const permission = await DeviceOrientationEvent.requestPermission();
             if (permission !== 'granted') {
-              alert('Sensor access denied. 360 head tracking will not work.');
+              alert('Sensor access denied.');
             }
           } catch (error) {
             console.error("Permission error:", error);
@@ -138,26 +148,18 @@
       }
 
       startBtn.onclick = async () => {
-        // 1. Request Sensors
         await requestPermissions();
 
-        // 2. Handle Fullscreen
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
         } else if (document.documentElement.webkitRequestFullscreen) {
             document.documentElement.webkitRequestFullscreen();
         }
 
-        // 3. Hide UI and Show Scene
         ui.classList.add('hidden');
         scene.style.display = "block";
         
-        // 4. Play Video
-        video.play().catch(err => {
-          console.log("Auto-play prevented, waiting for user interaction.");
-        });
-
-        // 5. Brief seek to force frame render on iOS
+        video.play().catch(err => console.log("Play blocked"));
         video.currentTime = 0.1;
       };
     </script>
