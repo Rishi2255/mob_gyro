@@ -1,21 +1,66 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - iOS Fixed</title>
+    <title>360 VR Player - Centered Button</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-      body { margin: 0; background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+      body { 
+        margin: 0; 
+        background: #000; 
+        color: white; 
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+        overflow: hidden;
+      }
+
+      /* Initial Upload UI */
       #ui { 
-        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: rgba(0,0,0,0.9); text-align: center; padding: 20px; box-sizing: border-box;
+        position: absolute; 
+        z-index: 100; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%;
+        display: flex; 
+        flex-direction: column; 
+        justify-content: center; 
+        align-items: center;
+        background: rgba(0,0,0,0.9); 
+        text-align: center; 
+        padding: 20px; 
+        box-sizing: border-box;
       }
+
       button { 
-        padding: 20px 40px; background: #007AFF; color: white; border: none; 
-        border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
+        padding: 20px 40px; 
+        background: #007AFF; 
+        color: white; 
+        border: none; 
+        border-radius: 12px; 
+        font-size: 18px; 
+        font-weight: 600; 
+        cursor: pointer;
       }
+
       input { margin-bottom: 30px; }
       .hidden { display: none !important; }
+
+      /* Force A-Frame's VR Button to the Middle */
+      .a-enter-vr {
+        position: fixed !important;
+        bottom: 50% !important;
+        right: 50% !important;
+        transform: translate(50%, 50%) !important;
+        margin: 0 !important;
+        z-index: 999;
+      }
+
+      /* Make the VR button slightly larger for easier tapping in the center */
+      .a-enter-vr-button {
+        width: 80px !important;
+        height: 50px !important;
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        border-radius: 8px !important;
+      }
     </style>
   </head>
   <body>
@@ -23,8 +68,8 @@
     <div id="ui">
       <h1>360 Stereo Player</h1>
       <input type="file" id="fileInput" accept="video/mp4">
-      <button id="startBtn" class="hidden">ALLOW SENSORS & PLAY</button>
-      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a video to start</p>
+      <button id="startBtn" class="hidden">ALLOW SENSORS & LOAD PLAYER</button>
+      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a 360 video to start</p>
     </div>
 
     <a-scene id="scene" style="display:none" loading-screen="dotsColor: white; backgroundColor: black">
@@ -33,7 +78,6 @@
                crossorigin="anonymous" 
                playsinline 
                webkit-playsinline 
-               autoplay="false"
                loop="true"></video>
       </a-assets>
 
@@ -71,10 +115,12 @@
       const ui = document.getElementById('ui');
 
       fileInput.onchange = (e) => {
-        video.src = URL.createObjectURL(e.target.files[0]);
-        video.load();
-        startBtn.classList.remove('hidden');
-        document.getElementById('msg').innerText = "File loaded. Tap button to start.";
+        if (e.target.files[0]) {
+          video.src = URL.createObjectURL(e.target.files[0]);
+          video.load();
+          startBtn.classList.remove('hidden');
+          document.getElementById('msg').innerText = "File ready. Tap button to continue.";
+        }
       };
 
       // iOS Permission Handler
@@ -83,31 +129,35 @@
           try {
             const permission = await DeviceOrientationEvent.requestPermission();
             if (permission !== 'granted') {
-              alert('Permission to sensors is required for 360 movement.');
+              alert('Sensor access denied. 360 head tracking will not work.');
             }
           } catch (error) {
-            console.error(error);
+            console.error("Permission error:", error);
           }
         }
       }
 
       startBtn.onclick = async () => {
-        // 1. Ask for sensor permission (Required for iOS 13+)
+        // 1. Request Sensors
         await requestPermissions();
 
-        // 2. Fullscreen
+        // 2. Handle Fullscreen
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
         } else if (document.documentElement.webkitRequestFullscreen) {
             document.documentElement.webkitRequestFullscreen();
         }
 
-        // 3. Setup Scene
+        // 3. Hide UI and Show Scene
         ui.classList.add('hidden');
         scene.style.display = "block";
         
-        // 4. iOS Video "Kickstart"
-        video.play();
+        // 4. Play Video
+        video.play().catch(err => {
+          console.log("Auto-play prevented, waiting for user interaction.");
+        });
+
+        // 5. Brief seek to force frame render on iOS
         video.currentTime = 0.1;
       };
     </script>
