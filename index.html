@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Instant Dual Screen</title>
+    <title>360 VR Player - Forced Dual Screen</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
@@ -25,9 +25,8 @@
       input { margin-bottom: 30px; }
       .hidden { display: none !important; }
 
-      /* HIDE THE A-FRAME BUTTON COMPLETELY */
-      .a-enter-vr { display: none !important; }
-      .a-enter-ar { display: none !important; }
+      /* Completely hide default A-Frame UI */
+      .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
     </style>
   </head>
   <body>
@@ -35,15 +34,14 @@
     <div id="ui">
       <h1>360 Stereo Player</h1>
       <input type="file" id="fileInput" accept="video/mp4,video/*">
-      <button id="startBtn" class="hidden">ENTER VR NOW</button>
-      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Waiting for file...</p>
+      <button id="startBtn" class="hidden">START VR MODE</button>
+      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a SBS video file</p>
     </div>
 
     <a-scene 
       id="scene" 
-      style="display:none" 
       vr-mode-ui="enabled: false"
-      loading-screen="dotsColor: white; backgroundColor: black">
+      style="display:none">
       
       <a-assets>
         <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
@@ -58,7 +56,7 @@
     </a-scene>
 
     <script>
-      // Eye-splitting logic
+      // Component to separate eyes for Cardboard
       AFRAME.registerComponent('stereo', {
         schema: { eye: { default: 'left' } },
         init: function () {
@@ -78,39 +76,36 @@
           video.src = URL.createObjectURL(e.target.files[0]);
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "File loaded. Tap below to start Dual-Screen VR.";
+          document.getElementById('msg').innerText = "Ready. Tap to enter split-screen.";
         }
       };
 
-      startBtn.onclick = async () => {
-        // 1. iOS Motion Permission
+      async function enterVRMode() {
+        // 1. Request Sensors (Required for head tracking on iOS)
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          try {
-            await DeviceOrientationEvent.requestPermission();
-          } catch (err) { console.error(err); }
+          try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
         }
-        
-        // 2. Fullscreen
-        const doc = document.documentElement;
-        if (doc.requestFullscreen) doc.requestFullscreen();
-        else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
 
-        // 3. Setup Scene
-        ui.classList.add('hidden');
-        sceneEl.style.display = "block";
+        // 2. Reveal Scene and Play Video
+        ui.style.display = 'none';
+        sceneEl.style.display = 'block';
         video.play();
-        video.currentTime = 0.1;
 
-        // 4. THE FIX: Force Dual-Screen VR Mode immediately
-        // We trigger it right here in the click handler to satisfy iOS security
-        if (sceneEl.hasLoaded) {
+        // 3. FORCE VR (Dual Screen)
+        // We wait for the scene to be ready, then fire the VR enter command
+        const forceVR = () => {
+          // This is the specific call for the side-by-side view
           sceneEl.enterVR();
+        };
+
+        if (sceneEl.hasLoaded) {
+          forceVR();
         } else {
-          sceneEl.addEventListener('loaded', () => {
-            sceneEl.enterVR();
-          });
+          sceneEl.addEventListener('loaded', forceVR);
         }
-      };
+      }
+
+      startBtn.addEventListener('click', enterVRMode);
     </script>
   </body>
 </html>
