@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Centered VR Only</title>
+    <title>360 VR Player - Centered Fix</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
@@ -12,61 +12,49 @@
         overflow: hidden;
       }
 
-      /* Initial Upload UI */
+      /* Initial UI Screen */
       #ui { 
         position: absolute; 
         z-index: 100; 
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100%;
-        display: flex; 
-        flex-direction: column; 
-        justify-content: center; 
-        align-items: center;
-        background: rgba(0,0,0,0.9); 
-        text-align: center; 
-        padding: 20px; 
-        box-sizing: border-box;
+        top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        background: rgba(0,0,0,0.9); text-align: center; padding: 20px; box-sizing: border-box;
       }
 
       button { 
-        padding: 20px 40px; 
-        background: #007AFF; 
-        color: white; 
-        border: none; 
-        border-radius: 12px; 
-        font-size: 18px; 
-        font-weight: 600; 
-        cursor: pointer;
+        padding: 20px 40px; background: #007AFF; color: white; border: none; 
+        border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
       }
 
       input { margin-bottom: 30px; }
       .hidden { display: none !important; }
 
-      /* Force the VR Button container to the dead center */
+      /* FULL CENTER FIX FOR VR BUTTON */
       .a-enter-vr {
         position: fixed !important;
-        bottom: 50% !important;
-        right: 50% !important;
-        transform: translate(50%, 50%) !important;
+        /* Reset A-Frame defaults */
+        right: auto !important; 
+        bottom: auto !important;
+        /* Set to exact middle */
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         margin: 0 !important;
-        z-index: 999;
+        width: 120px !important; /* Fixed width for centering calculation */
+        height: 70px !important;
+        z-index: 9999;
       }
 
-      /* Style the VR button specifically */
       .a-enter-vr-button {
-        width: 100px !important;
-        height: 60px !important;
-        background-color: #007AFF !important; /* Blue background for better visibility */
-        border-radius: 12px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: #007AFF !important;
+        border-radius: 15px !important;
+        box-shadow: 0 0 20px rgba(0,0,0,1) !important;
       }
 
-      /* Hide the AR button if it tries to appear */
-      .a-enter-ar {
-        display: none !important;
-      }
+      /* Hide AR button completely */
+      .a-enter-ar { display: none !important; }
     </style>
   </head>
   <body>
@@ -85,32 +73,18 @@
       loading-screen="dotsColor: white; backgroundColor: black">
       
       <a-assets>
-        <video id="v" 
-               crossorigin="anonymous" 
-               playsinline 
-               webkit-playsinline 
-               loop="true"></video>
+        <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
       <a-entity id="rig">
           <a-entity id="camera" camera look-controls></a-entity>
       </a-entity>
 
-      <a-videosphere src="#v" 
-                     rotation="0 -90 0"
-                     material="repeat: 1 0.5; offset: 0 0.5"
-                     stereo="eye: left">
-      </a-videosphere>
-
-      <a-videosphere src="#v" 
-                     rotation="0 -90 0"
-                     material="repeat: 1 0.5; offset: 0 0"
-                     stereo="eye: right">
-      </a-videosphere>
+      <a-videosphere src="#v" rotation="0 -90 0" material="repeat: 1 0.5; offset: 0 0.5" stereo="eye: left"></a-videosphere>
+      <a-videosphere src="#v" rotation="0 -90 0" material="repeat: 1 0.5; offset: 0 0" stereo="eye: right"></a-videosphere>
     </a-scene>
 
     <script>
-      // Register the eye-splitting component
       AFRAME.registerComponent('stereo', {
         schema: { eye: { default: 'left' } },
         init: function () {
@@ -130,26 +104,21 @@
           video.src = URL.createObjectURL(e.target.files[0]);
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "File ready. Tap button to continue.";
+          document.getElementById('msg').innerText = "File loaded. Tap to start.";
         }
       };
 
       async function requestPermissions() {
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try {
-            const permission = await DeviceOrientationEvent.requestPermission();
-            if (permission !== 'granted') {
-              alert('Sensor access denied.');
-            }
-          } catch (error) {
-            console.error("Permission error:", error);
-          }
+            await DeviceOrientationEvent.requestPermission();
+          } catch (e) { console.error(e); }
         }
       }
 
       startBtn.onclick = async () => {
         await requestPermissions();
-
+        
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
         } else if (document.documentElement.webkitRequestFullscreen) {
@@ -158,8 +127,7 @@
 
         ui.classList.add('hidden');
         scene.style.display = "block";
-        
-        video.play().catch(err => console.log("Play blocked"));
+        video.play();
         video.currentTime = 0.1;
       };
     </script>
