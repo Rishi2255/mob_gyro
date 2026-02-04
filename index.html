@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Grey Styled Button</title>
+    <title>360 VR Player - Auto VR Mode</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
@@ -29,7 +29,7 @@
       input { margin-bottom: 30px; }
       .hidden { display: none !important; }
 
-      /* FULL CENTER FIX FOR VR BUTTON */
+      /* Centered VR Button (Backup in case they exit VR) */
       .a-enter-vr {
         position: fixed !important;
         right: auto !important; 
@@ -43,23 +43,14 @@
         z-index: 9999;
       }
 
-      /* Button Styling: Grey background, no border, white icon */
       .a-enter-vr-button {
         width: 100% !important;
         height: 100% !important;
-        background-color: #333333 !important; /* Dark Grey */
-        border: none !important;              /* No border */
+        background-color: #333333 !important;
+        border: none !important;
         border-radius: 12px !important;
-        background-size: 70% !important;       /* Adjust icon size */
-        filter: brightness(1) invert(0) !important; /* Ensures icon visibility */
-        transition: background-color 0.2s;
       }
 
-      .a-enter-vr-button:hover {
-        background-color: #4A4A4A !important; /* Lighter grey on hover */
-      }
-
-      /* Hide AR button completely */
       .a-enter-ar { display: none !important; }
     </style>
   </head>
@@ -68,7 +59,7 @@
     <div id="ui">
       <h1>360 Stereo Player</h1>
       <input type="file" id="fileInput" accept="video/mp4">
-      <button id="startBtn" class="hidden">ALLOW SENSORS & LOAD PLAYER</button>
+      <button id="startBtn" class="hidden">LAUNCH IN VR MODE</button>
       <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a 360 video to start</p>
     </div>
 
@@ -102,7 +93,7 @@
       const fileInput = document.getElementById('fileInput');
       const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('v');
-      const scene = document.getElementById('scene');
+      const sceneEl = document.querySelector('a-scene');
       const ui = document.getElementById('ui');
 
       fileInput.onchange = (e) => {
@@ -110,7 +101,7 @@
           video.src = URL.createObjectURL(e.target.files[0]);
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "File loaded. Tap to start.";
+          document.getElementById('msg').innerText = "File loaded. Ready for VR.";
         }
       };
 
@@ -123,18 +114,31 @@
       }
 
       startBtn.onclick = async () => {
+        // 1. Sensore Permission
         await requestPermissions();
         
+        // 2. Browser Fullscreen
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
         } else if (document.documentElement.webkitRequestFullscreen) {
             document.documentElement.webkitRequestFullscreen();
         }
 
+        // 3. Show Scene
         ui.classList.add('hidden');
-        scene.style.display = "block";
+        sceneEl.style.display = "block";
+        
+        // 4. Start Video
         video.play();
         video.currentTime = 0.1;
+
+        // 5. TRIGGER VR MODE AUTOMATICALLY
+        // We wait a tiny bit to ensure the scene has rendered its first frame
+        if (sceneEl.hasLoaded) {
+            sceneEl.enterVR();
+        } else {
+            sceneEl.addEventListener('loaded', () => sceneEl.enterVR());
+        }
       };
     </script>
   </body>
