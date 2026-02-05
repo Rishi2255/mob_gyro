@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Full Screen SBS - No Distortion</title>
+    <title>360 VR - Perfect Alignment</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
         
         #ui { 
             position: absolute; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%;
@@ -12,18 +12,18 @@
             background: #000; color: white; font-family: sans-serif;
         }
 
-        /* THE FIX: We split the screen into two containers using CSS */
         .viewport-container {
-            display: none; /* Hidden until start */
+            display: none; 
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             flex-direction: row;
+            /* This gap can be adjusted to help eye alignment */
+            gap: 0px; 
         }
 
         .eye {
             width: 50%; height: 100%; position: relative; overflow: hidden;
         }
 
-        /* Force A-Frame to fill the CSS container exactly */
         canvas { width: 100% !important; height: 100% !important; }
 
         button#startBtn { 
@@ -38,20 +38,25 @@
     <div id="ui">
         <input type="file" id="fileInput" accept="video/*">
         <button id="startBtn" class="hidden">START DUAL SCREEN</button>
+        <p style="font-size: 12px; color: #888; margin-top: 10px;">Hold phone sideways (Landscape)</p>
     </div>
 
     <div id="wrapper" class="viewport-container">
         <div class="eye">
-            <a-scene embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+            <a-scene embedded vr-mode-ui="enabled: false">
                 <a-assets><video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop></video></a-assets>
+                <a-entity id="leftRig" position="-0.03 0 0">
+                    <a-entity camera="fov: 80" look-controls></a-entity>
+                </a-entity>
                 <a-videosphere src="#v" rotation="0 -90 0" material="repeat: 1 0.5; offset: 0 0.5"></a-videosphere>
-                <a-entity camera look-controls="pointerLockEnabled: true"></a-entity>
             </a-scene>
         </div>
         <div class="eye">
             <a-scene embedded vr-mode-ui="enabled: false">
+                <a-entity id="rightRig" position="0.03 0 0">
+                    <a-entity camera="fov: 80" look-controls="enabled: false"></a-entity>
+                </a-entity>
                 <a-videosphere src="#v" rotation="0 -90 0" material="repeat: 1 0.5; offset: 0 0"></a-videosphere>
-                <a-entity camera look-controls></a-entity>
             </a-scene>
         </div>
     </div>
@@ -62,7 +67,8 @@
         const video = document.getElementById('v');
         const ui = document.getElementById('ui');
         const wrapper = document.getElementById('wrapper');
-        const scenes = document.querySelectorAll('a-scene');
+        const leftScene = document.querySelectorAll('a-scene')[0];
+        const rightScene = document.querySelectorAll('a-scene')[1];
 
         fileInput.onchange = (e) => {
             if (e.target.files[0]) {
@@ -73,7 +79,6 @@
         };
 
         startBtn.onclick = async () => {
-            // iOS Sensor Permission
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
             }
@@ -82,17 +87,15 @@
             wrapper.style.display = 'flex';
             video.play();
 
-            // Synchronize cameras
-            const cams = document.querySelectorAll('[camera]');
-            scenes[0].addEventListener('componentchanged', (evt) => {
+            const leftCam = leftScene.querySelector('[camera]');
+            const rightCam = rightScene.querySelector('[camera]');
+
+            // SYNC CORE: Force the right eye to match the left eye's head movement
+            leftScene.addEventListener('componentchanged', (evt) => {
                 if (evt.detail.name === 'rotation') {
-                    cams[1].setAttribute('rotation', evt.detail.newData);
+                    rightCam.setAttribute('rotation', evt.detail.newData);
                 }
             });
-
-            // Force Fullscreen
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-            else if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
         };
     </script>
 </body>
