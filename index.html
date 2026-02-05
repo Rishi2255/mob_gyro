@@ -1,97 +1,99 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>360 VR - Full Edge-to-Edge</title>
+<head>
+    <title>Full Screen SBS - No Distortion</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-      body { margin: 0; background: #000; overflow: hidden; }
-      #ui { 
-        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: #000; color: white; font-family: sans-serif;
-      }
-      button#startBtn { 
-        padding: 20px 40px; background: #4A4A4A; color: white; border: none; 
-        border-radius: 12px; font-size: 18px; cursor: pointer;
-      }
-      .hidden { display: none !important; }
-      
-      /* Force the canvas to overflow any safe zones */
-      canvas { width: 100vw !important; height: 100vh !important; }
-      .a-enter-vr { display: none !important; }
+        body { margin: 0; background: #000; overflow: hidden; }
+        
+        #ui { 
+            position: absolute; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #000; color: white; font-family: sans-serif;
+        }
+
+        /* THE FIX: We split the screen into two containers using CSS */
+        .viewport-container {
+            display: none; /* Hidden until start */
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            flex-direction: row;
+        }
+
+        .eye {
+            width: 50%; height: 100%; position: relative; overflow: hidden;
+        }
+
+        /* Force A-Frame to fill the CSS container exactly */
+        canvas { width: 100% !important; height: 100% !important; }
+
+        button#startBtn { 
+            padding: 20px 40px; background: #4A4A4A; color: white; border: none; 
+            border-radius: 12px; font-size: 18px; cursor: pointer;
+        }
+        .hidden { display: none !important; }
     </style>
-  </head>
-  <body>
+</head>
+<body>
 
     <div id="ui">
-      <input type="file" id="fileInput" accept="video/*">
-      <button id="startBtn" class="hidden">START FULLSCREEN VR 360</button>
+        <input type="file" id="fileInput" accept="video/*">
+        <button id="startBtn" class="hidden">START DUAL SCREEN</button>
     </div>
 
-    <a-scene 
-      id="scene" 
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-      style="display:none">
-      
-      <a-assets>
-        <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
-      </a-assets>
-
-      <a-entity id="rig">
-          <a-entity camera="fov: 100" look-controls></a-entity>
-      </a-entity>
-
-      <a-videosphere src="#v" radius="100" rotation="0 -90 0" 
-                     material="repeat: 1 0.5; offset: 0 0.5" stereo="eye: left">
-      </a-videosphere>
-
-      <a-videosphere src="#v" radius="100" rotation="0 -90 0" 
-                     material="repeat: 1 0.5; offset: 0 0" stereo="eye: right">
-      </a-videosphere>
-    </a-scene>
+    <div id="wrapper" class="viewport-container">
+        <div class="eye">
+            <a-scene embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+                <a-assets><video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop></video></a-assets>
+                <a-videosphere src="#v" rotation="0 -90 0" material="repeat: 1 0.5; offset: 0 0.5"></a-videosphere>
+                <a-entity camera look-controls="pointerLockEnabled: true"></a-entity>
+            </a-scene>
+        </div>
+        <div class="eye">
+            <a-scene embedded vr-mode-ui="enabled: false">
+                <a-videosphere src="#v" rotation="0 -90 0" material="repeat: 1 0.5; offset: 0 0"></a-videosphere>
+                <a-entity camera look-controls></a-entity>
+            </a-scene>
+        </div>
+    </div>
 
     <script>
-      AFRAME.registerComponent('stereo', {
-        schema: { eye: { default: 'left' } },
-        init: function () {
-          this.el.setAttribute('layers', this.data.eye === 'left' ? 1 : 2);
-          this.el.object3D.layers.set(this.data.eye === 'left' ? 1 : 2);
-        }
-      });
+        const fileInput = document.getElementById('fileInput');
+        const startBtn = document.getElementById('startBtn');
+        const video = document.getElementById('v');
+        const ui = document.getElementById('ui');
+        const wrapper = document.getElementById('wrapper');
+        const scenes = document.querySelectorAll('a-scene');
 
-      const fileInput = document.getElementById('fileInput');
-      const startBtn = document.getElementById('startBtn');
-      const video = document.getElementById('v');
-      const sceneEl = document.querySelector('a-scene');
-      const ui = document.getElementById('ui');
+        fileInput.onchange = (e) => {
+            if (e.target.files[0]) {
+                video.src = URL.createObjectURL(e.target.files[0]);
+                video.load();
+                startBtn.classList.remove('hidden');
+            }
+        };
 
-      fileInput.onchange = (e) => {
-        if (e.target.files[0]) {
-          video.src = URL.createObjectURL(e.target.files[0]);
-          video.load();
-          startBtn.classList.remove('hidden');
-        }
-      };
+        startBtn.onclick = async () => {
+            // iOS Sensor Permission
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+            }
 
-      startBtn.onclick = async () => {
-        // Request sensors for iOS
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
-        }
+            ui.style.display = 'none';
+            wrapper.style.display = 'flex';
+            video.play();
 
-        ui.style.display = 'none';
-        sceneEl.style.display = 'block';
-        video.play();
+            // Synchronize cameras
+            const cams = document.querySelectorAll('[camera]');
+            scenes[0].addEventListener('componentchanged', (evt) => {
+                if (evt.detail.name === 'rotation') {
+                    cams[1].setAttribute('rotation', evt.detail.newData);
+                }
+            });
 
-        // This enters VR mode. To remove the "Box" look, A-Frame 1.4.0+ 
-        // usually requires the device to NOT be identified as a generic cardboard.
-        sceneEl.enterVR();
-        
-        // Final fallback: If it still shows masks, we force the camera resize
-        window.dispatchEvent(new Event('resize'));
-      };
+            // Force Fullscreen
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+            else if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
+        };
     </script>
-  </body>
+</body>
 </html>
-
