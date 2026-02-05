@@ -1,73 +1,61 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR - Full Height Dual Screen</title>
+    <title>360 VR - No Letterbox Full Fill</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       body { 
-        margin: 0; background: #000; color: white; 
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-        overflow: hidden; touch-action: none;
+        margin: 0; background: #000; overflow: hidden; 
+        font-family: -apple-system, sans-serif;
       }
-
-      /* Initial UI */
       #ui { 
         position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: #000; text-align: center; padding: 20px; box-sizing: border-box;
+        background: #000; color: white;
       }
-
       button#startBtn { 
         padding: 20px 40px; background: #4A4A4A; color: white; border: none; 
-        border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
+        border-radius: 12px; font-size: 18px; cursor: pointer;
       }
-
-      input { margin-bottom: 30px; }
       .hidden { display: none !important; }
 
-      /* Force the A-Frame Canvas to be truly full screen without borders */
-      canvas.a-canvas {
-        width: 100% !important;
-        height: 100% !important;
-        left: 0 !important;
-        top: 0 !important;
-      }
-
+      /* Force canvas to ignore safe areas and fill everything */
+      canvas { width: 100% !important; height: 100% !important; }
       .a-enter-vr, .a-enter-ar { display: none !important; }
     </style>
   </head>
   <body>
 
     <div id="ui">
-      <h1>360 Stereo Player</h1>
-      <input type="file" id="fileInput" accept="video/mp4,video/*">
-      <button id="startBtn" class="hidden">START VR MODE</button>
-      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload SBS Video</p>
+      <input type="file" id="fileInput" accept="video/*">
+      <button id="startBtn" class="hidden">ENTER FULL VR</button>
     </div>
 
     <a-scene 
       id="scene" 
       vr-mode-ui="enabled: false"
-      renderer="antialias: true; colorManagement: true;"
-      style="display:none">
+      style="display:none"
+      embedded="false">
       
       <a-assets>
         <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
-      <a-entity id="cameraRig">
-          <a-entity id="camera" camera="fov: 80" look-controls></a-entity>
+      <a-entity id="rig">
+          <a-entity camera="fov: 90; zoom: 1.1" look-controls></a-entity>
       </a-entity>
 
       <a-videosphere src="#v" 
-                     radius="100"
+                     radius="50"
+                     scale="1.2 1.2 1.2"
                      rotation="0 -90 0" 
                      material="repeat: 1 0.5; offset: 0 0.5" 
                      stereo="eye: left">
       </a-videosphere>
 
       <a-videosphere src="#v" 
-                     radius="100"
+                     radius="50"
+                     scale="1.2 1.2 1.2"
                      rotation="0 -90 0" 
                      material="repeat: 1 0.5; offset: 0 0" 
                      stereo="eye: right">
@@ -97,7 +85,7 @@
         }
       };
 
-      async function enterVRMode() {
+      startBtn.onclick = async () => {
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
         }
@@ -106,13 +94,12 @@
         sceneEl.style.display = 'block';
         video.play();
 
-        // Small delay ensures the browser has allocated the window size correctly for VR
+        // Use a timeout to ensure the screen has rotated to landscape 
+        // before requesting VR mode.
         setTimeout(() => {
           sceneEl.enterVR();
-        }, 200);
-      }
-
-      startBtn.addEventListener('click', enterVRMode);
+        }, 300);
+      };
     </script>
   </body>
 </html>
