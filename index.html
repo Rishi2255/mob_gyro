@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>360 VR - High Performance</title>
+    <title>360 VR - SBS Fixed</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #ui { 
@@ -16,38 +15,47 @@
             border-radius: 12px; font-size: 18px; cursor: pointer; margin-top: 10px;
         }
         .hidden { display: none !important; }
-        
-        /* This ensures no curved masks or "boxes" appear */
         .a-enter-vr, .a-enter-ar { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h1>360 VR Player</h1>
+        <h1>VR 360 Player</h1>
         <input type="file" id="fileInput" accept="video/*">
-        <button id="startBtn" class="hidden">LAUNCH FULL VR 360</button>
+        <button id="startBtn" class="hidden">START VIDEO</button>
     </div>
 
     <a-scene id="scene" vr-mode-ui="enabled: false" style="display:none">
         <a-assets>
-            <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop></video>
+            <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop muted></video>
         </a-assets>
 
-        <a-entity camera look-controls stereo="eye: left"></a-entity>
+        <a-entity id="rig">
+            <a-entity camera="fov: 80" look-controls></a-entity>
+        </a-entity>
 
-        <a-videosphere src="#v" rotation="0 -90 0" 
-                       material="repeat: 1 0.5; offset: 0 0.5" 
+        <a-videosphere id="leftSphere" src="#v" rotation="0 -90 0" 
+                       material="repeat: 0.5 1; offset: 0 0" 
                        stereo="eye: left">
         </a-videosphere>
 
-        <a-videosphere src="#v" rotation="0 -90 0" 
-                       material="repeat: 1 0.5; offset: 0 0" 
+        <a-videosphere id="rightSphere" src="#v" rotation="0 -90 0" 
+                       material="repeat: 0.5 1; offset: 0.5 0" 
                        stereo="eye: right">
         </a-videosphere>
     </a-scene>
 
     <script>
+        // Custom Component to handle Eye separation
+        AFRAME.registerComponent('stereo', {
+          schema: { eye: { default: 'left' } },
+          init: function () {
+            this.el.setAttribute('layers', this.data.eye === 'left' ? 1 : 2);
+            this.el.object3D.layers.set(this.data.eye === 'left' ? 1 : 2);
+          }
+        });
+
         const fileInput = document.getElementById('fileInput');
         const startBtn = document.getElementById('startBtn');
         const video = document.getElementById('v');
@@ -56,33 +64,38 @@
 
         fileInput.onchange = (e) => {
             if (e.target.files[0]) {
-                video.src = URL.createObjectURL(e.target.files[0]);
+                const url = URL.createObjectURL(e.target.files[0]);
+                video.src = url;
                 video.load();
                 startBtn.classList.remove('hidden');
             }
         };
 
         startBtn.onclick = async () => {
-            // 1. Permissions
+            // iOS Permission
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                await DeviceOrientationEvent.requestPermission();
+                try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
             }
 
-            // 2. Force Fullscreen (iOS specific)
-            const doc = document.documentElement;
-            if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
-            else if (doc.requestFullscreen) doc.requestFullscreen();
-
-            // 3. UI Toggle
+            // Unmute and Play
+            video.muted = false;
+            
+            // Toggle UI
             ui.style.display = 'none';
             scene.style.display = 'block';
-            video.play();
-
-            // 4. THE MAGIC: Force A-Frame's internal Stereo Dual-Screen
-            // This renders the scene twice (one for each eye) in one engine
-            setTimeout(() => {
-                scene.enterVR();
-            }, 200);
+            
+            video.play().then(() => {
+                // Force Enter VR mode for dual screen
+                setTimeout(() => {
+                    scene.enterVR();
+                }, 200);
+            }).catch(err => {
+                console.error("Video play failed:", err);
+            });
+            
+            // Force Fullscreen
+            const doc = document.documentElement;
+            if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
         };
     </script>
 </body>
