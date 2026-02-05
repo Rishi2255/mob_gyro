@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>360 VR - SBS Fixed</title>
+    <title>360 VR - SBS Wrap Fixed</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
@@ -11,19 +11,20 @@
             background: #000; color: white; font-family: sans-serif;
         }
         button { 
-            padding: 20px 40px; background: #4A4A4A; color: white; border: none; 
-            border-radius: 12px; font-size: 18px; cursor: pointer; margin-top: 10px;
+            padding: 20px 40px; background: #222; color: white; border: 1px solid #444; 
+            border-radius: 8px; font-size: 18px; cursor: pointer;
         }
         .hidden { display: none !important; }
-        .a-enter-vr, .a-enter-ar { display: none !important; }
+        /* Hide A-Frame's default UI */
+        .a-enter-vr { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h1>VR 360 Player</h1>
         <input type="file" id="fileInput" accept="video/*">
-        <button id="startBtn" class="hidden">START VIDEO</button>
+        <button id="startBtn" class="hidden">ENTER VR NOW</button>
+        <p style="margin-top:15px; font-size:12px; opacity:0.6;">Ensure iPhone is in Landscape (Sideways)</p>
     </div>
 
     <a-scene id="scene" vr-mode-ui="enabled: false" style="display:none">
@@ -31,8 +32,8 @@
             <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop muted></video>
         </a-assets>
 
-        <a-entity id="rig">
-            <a-entity camera="fov: 80" look-controls></a-entity>
+        <a-entity id="rig" position="0 0 0">
+            <a-entity id="cam" camera="fov: 90" look-controls></a-entity>
         </a-entity>
 
         <a-videosphere id="leftSphere" src="#v" rotation="0 -90 0" 
@@ -47,12 +48,13 @@
     </a-scene>
 
     <script>
-        // Custom Component to handle Eye separation
+        // Critical Component for Eye Separation
         AFRAME.registerComponent('stereo', {
           schema: { eye: { default: 'left' } },
           init: function () {
-            this.el.setAttribute('layers', this.data.eye === 'left' ? 1 : 2);
-            this.el.object3D.layers.set(this.data.eye === 'left' ? 1 : 2);
+            const layer = this.data.eye === 'left' ? 1 : 2;
+            this.el.setAttribute('layers', layer);
+            this.el.object3D.layers.set(layer);
           }
         });
 
@@ -64,38 +66,33 @@
 
         fileInput.onchange = (e) => {
             if (e.target.files[0]) {
-                const url = URL.createObjectURL(e.target.files[0]);
-                video.src = url;
+                video.src = URL.createObjectURL(e.target.files[0]);
                 video.load();
                 startBtn.classList.remove('hidden');
             }
         };
 
         startBtn.onclick = async () => {
-            // iOS Permission
+            // 1. Handle Permissions for Motion
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
             }
 
-            // Unmute and Play
+            // 2. Setup Video
             video.muted = false;
-            
-            // Toggle UI
             ui.style.display = 'none';
             scene.style.display = 'block';
             
-            video.play().then(() => {
-                // Force Enter VR mode for dual screen
-                setTimeout(() => {
-                    scene.enterVR();
-                }, 200);
-            }).catch(err => {
-                console.error("Video play failed:", err);
-            });
+            // 3. Enter VR & Fullscreen
+            video.play();
             
-            // Force Fullscreen
+            // This is the "Dual Screen" trigger
+            scene.enterVR();
+
+            // Request browser fullscreen (hides URL bar)
             const doc = document.documentElement;
             if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+            else if (doc.requestFullscreen) doc.requestFullscreen();
         };
     </script>
 </body>
