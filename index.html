@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>360 VR Player - Top/Bottom</title>
+    <title>360 VR Player - Top/Bottom Stereo</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
@@ -14,6 +14,7 @@
         overflow: hidden;
       }
 
+      /* UI Styling */
       #ui { 
         position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -21,14 +22,15 @@
       }
 
       .container { max-width: 400px; width: 100%; }
+      
       button#startBtn { 
         width: 100%; padding: 20px; background: #007AFF; color: white; border: none; 
         border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
-        margin-top: 20px;
+        margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
       }
 
       .hidden { display: none !important; }
-      .a-enter-vr { display: none !important; }
+      .a-enter-vr { display: none !important; } /* Hide default button */
     </style>
   </head>
   <body>
@@ -36,11 +38,14 @@
     <div id="ui">
       <div class="container">
         <h1>360 VR Player</h1>
-        <p>Upload a <b>Top-Bottom</b> Stereo MP4</p>
+        <p>Upload your <b>Top-Bottom</b> Stereo Video</p>
+        
         <input type="file" id="fileInput" accept="video/mp4,video/*">
+        
         <button id="startBtn" class="hidden">START VR MODE</button>
-        <p id="msg" style="margin-top:20px; font-size: 12px; opacity: 0.6;">
-          Turn off Portrait Lock and use Landscape mode.
+        
+        <p id="msg" style="margin-top:20px; font-size: 13px; color: #888;">
+          Note: Ensure iPhone Portrait Lock is <b>OFF</b>.
         </p>
       </div>
     </div>
@@ -70,60 +75,4 @@
     </a-scene>
 
     <script>
-      // Component to force objects into specific VR eyes
-      AFRAME.registerComponent('stereo-handler', {
-        schema: { eye: { default: 'left' } },
-        init: function () {
-          // Layer 1 is for Left Eye, Layer 2 is for Right Eye
-          const layer = this.data.eye === 'left' ? 1 : 2;
-          this.el.object3D.layers.set(layer);
-        }
-      });
-
-      const fileInput = document.getElementById('fileInput');
-      const startBtn = document.getElementById('startBtn');
-      const video = document.getElementById('v');
-      const sceneEl = document.querySelector('a-scene');
-      const ui = document.getElementById('ui');
-
-      fileInput.onchange = (e) => {
-        if (e.target.files[0]) {
-          video.src = URL.createObjectURL(e.target.files[0]);
-          video.load();
-          startBtn.classList.remove('hidden');
-        }
-      };
-
-      async function enterVRMode() {
-        // 1. Play video (Captures user gesture for Safari)
-        video.play();
-
-        // 2. Request Motion Sensors (iOS specific)
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          try {
-            await DeviceOrientationEvent.requestPermission();
-          } catch (e) {
-            console.warn("Sensor permission denied");
-          }
-        }
-
-        // 3. UI Transition
-        ui.style.display = 'none';
-        sceneEl.style.display = 'block';
-
-        // 4. Trigger Split Screen
-        // We wait for a short tick to ensure the scene is rendered
-        setTimeout(() => {
-          sceneEl.enterVR();
-        }, 150);
-      }
-
-      startBtn.addEventListener('click', enterVRMode);
-
-      // Reset UI if VR mode is exited
-      sceneEl.addEventListener('exit-vr', () => {
-        location.reload(); // Simplest way to reset state for a fresh upload
-      });
-    </script>
-  </body>
-</html>
+      // Component to separate eyes
