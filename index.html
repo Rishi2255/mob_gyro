@@ -2,20 +2,18 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>360 VR Player - Top/Bottom Stereo</title>
+    <title>360 VR Player - Top/Bottom</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-stereo-component@0.9.1/dist/aframe-stereo-component.min.js"></script>
     
     <style>
       body { 
         margin: 0; background: #000; color: white; 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
         overflow: hidden;
       }
 
-      /* UI Overlay */
       #ui { 
         position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -23,26 +21,13 @@
       }
 
       .container { max-width: 400px; width: 100%; }
-
-      h1 { font-size: 24px; margin-bottom: 10px; }
-      p { font-size: 14px; color: #aaa; margin-bottom: 30px; }
-
-      input[type="file"] {
-        margin-bottom: 20px;
-        font-size: 16px;
-      }
-
       button#startBtn { 
         width: 100%; padding: 20px; background: #007AFF; color: white; border: none; 
         border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
-        box-shadow: 0 4px 15px rgba(0,122,255,0.3);
-        transition: transform 0.2s;
+        margin-top: 20px;
       }
 
-      button#startBtn:active { transform: scale(0.98); }
       .hidden { display: none !important; }
-
-      /* Hide default A-Frame VR buttons to use our own trigger */
       .a-enter-vr { display: none !important; }
     </style>
   </head>
@@ -51,89 +36,93 @@
     <div id="ui">
       <div class="container">
         <h1>360 VR Player</h1>
-        <p>Select a <b>Top-Bottom</b> Stereo 360 Video</p>
-        
+        <p>Upload a <b>Top-Bottom</b> Stereo MP4</p>
         <input type="file" id="fileInput" accept="video/mp4,video/*">
-        
-        <button id="startBtn" class="hidden">ENTER VR MODE</button>
-        
-        <div id="msg" style="margin-top:20px; font-size: 12px; color: #666;">
-          Note: Use Landscape mode for the best experience.
-        </div>
+        <button id="startBtn" class="hidden">START VR MODE</button>
+        <p id="msg" style="margin-top:20px; font-size: 12px; opacity: 0.6;">
+          Turn off Portrait Lock and use Landscape mode.
+        </p>
       </div>
     </div>
 
-    <a-scene 
-      id="scene" 
-      vr-mode-ui="enabled: false"
-      style="display:none">
-      
+    <a-scene id="scene" vr-mode-ui="enabled: false" style="display:none">
       <a-assets>
         <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
       <a-entity id="cameraRig">
-        <a-entity id="camera" camera look-controls stereocam="eye:left;"></a-entity>
+        <a-entity id="camera" camera look-controls></a-entity>
       </a-entity>
 
-      <a-videosphere src="#v" rotation="0 -90 0" stereo="eye: left"></a-videosphere>
-      <a-videosphere src="#v" rotation="0 -90 0" stereo="eye: right"></a-videosphere>
-      
+      <a-videosphere 
+        src="#v" 
+        rotation="0 -90 0" 
+        material="repeat: 1 0.5; offset: 0 0.5" 
+        stereo-handler="eye: left">
+      </a-videosphere>
+
+      <a-videosphere 
+        src="#v" 
+        rotation="0 -90 0" 
+        material="repeat: 1 0.5; offset: 0 0" 
+        stereo-handler="eye: right">
+      </a-videosphere>
     </a-scene>
 
     <script>
+      // Component to force objects into specific VR eyes
+      AFRAME.registerComponent('stereo-handler', {
+        schema: { eye: { default: 'left' } },
+        init: function () {
+          // Layer 1 is for Left Eye, Layer 2 is for Right Eye
+          const layer = this.data.eye === 'left' ? 1 : 2;
+          this.el.object3D.layers.set(layer);
+        }
+      });
+
       const fileInput = document.getElementById('fileInput');
       const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('v');
       const sceneEl = document.querySelector('a-scene');
       const ui = document.getElementById('ui');
 
-      // Handle File Upload
       fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          video.src = URL.createObjectURL(file);
+        if (e.target.files[0]) {
+          video.src = URL.createObjectURL(e.target.files[0]);
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "Video loaded. Ensure Rotation Lock is OFF.";
         }
       };
 
-      // Main Entry Function
-      async function enterVR() {
-        // 1. Play video immediately (Essential for Safari)
+      async function enterVRMode() {
+        // 1. Play video (Captures user gesture for Safari)
         video.play();
 
-        // 2. Request Gyroscope permissions for iOS
+        // 2. Request Motion Sensors (iOS specific)
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try {
-            const permission = await DeviceOrientationEvent.requestPermission();
-            if (permission !== 'granted') {
-              alert("Permission to access sensors was denied. Head tracking will not work.");
-            }
-          } catch (err) {
-            console.error(err);
+            await DeviceOrientationEvent.requestPermission();
+          } catch (e) {
+            console.warn("Sensor permission denied");
           }
         }
 
-        // 3. Switch UI
+        // 3. UI Transition
         ui.style.display = 'none';
         sceneEl.style.display = 'block';
 
-        // 4. Force A-Frame into VR mode
-        // Small delay to ensure the scene has rendered before splitting the screen
+        // 4. Trigger Split Screen
+        // We wait for a short tick to ensure the scene is rendered
         setTimeout(() => {
           sceneEl.enterVR();
-        }, 200);
+        }, 150);
       }
 
-      startBtn.addEventListener('click', enterVR);
+      startBtn.addEventListener('click', enterVRMode);
 
-      // Handle exiting VR (Show UI again if user exits)
+      // Reset UI if VR mode is exited
       sceneEl.addEventListener('exit-vr', () => {
-        sceneEl.style.display = 'none';
-        ui.style.display = 'flex';
-        video.pause();
+        location.reload(); // Simplest way to reset state for a fresh upload
       });
     </script>
   </body>
