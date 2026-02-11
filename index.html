@@ -1,107 +1,92 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>360 VR Player - Top/Bottom Stereo</title>
+    <title>360 VR Player - Top/Bottom</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-      body { 
-        margin: 0; background: #000; color: white; 
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-        overflow: hidden;
-      }
-
-      /* Upload UI */
+      body { margin: 0; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
       #ui { 
         position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: #1a1a1a; text-align: center; padding: 20px; box-sizing: border-box;
+        background: #111; text-align: center;
       }
-
-      button#startBtn { 
-        padding: 20px 40px; background: #007AFF; color: white; border: none; 
-        border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer;
-        transition: background 0.2s;
+      button { 
+        padding: 15px 30px; background: #222; color: white; border: 1px solid #444; 
+        border-radius: 8px; cursor: pointer; font-size: 16px; 
       }
-
-      button#startBtn:hover { background: #0056b3; }
-      input { margin-bottom: 30px; }
       .hidden { display: none !important; }
-
-      /* Hide default A-Frame UI */
-      .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
+      .a-enter-vr { display: none !important; }
     </style>
   </head>
   <body>
 
     <div id="ui">
-      <h1>360 VR Stereo Player</h1>
-      <p>Select a Top-Bottom (Over/Under) 360 Video</p>
-      <input type="file" id="fileInput" accept="video/mp4,video/*">
-      <button id="startBtn" class="hidden">START VR MODE</button>
-      <p id="msg" style="margin-top:20px; font-size: 14px; opacity: 0.7;">Upload a file to begin</p>
+      <h1>360 Stereo Player</h1>
+      <input type="file" id="fileInput" accept="video/*">
+      <button id="startBtn" class="hidden">START VR</button>
     </div>
 
-    <a-scene 
-      id="scene" 
-      vr-mode-ui="enabled: false"
-      style="display:none">
-      
+    <a-scene id="scene" vr-mode-ui="enabled: false" style="display:none">
       <a-assets>
         <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
       </a-assets>
 
       <a-entity id="cameraRig">
-          <a-entity id="camera" camera look-controls stereo-camera></a-entity>
+        <a-entity id="camera" camera look-controls stereo-camera-fix></a-entity>
       </a-entity>
 
       <a-videosphere 
         src="#v" 
         rotation="0 -90 0" 
         material="repeat: 1 0.5; offset: 0 0.5" 
-        stereo="eye: left">
+        stereo-layer="eye: left">
       </a-videosphere>
 
       <a-videosphere 
         src="#v" 
         rotation="0 -90 0" 
         material="repeat: 1 0.5; offset: 0 0" 
-        stereo="eye: right">
+        stereo-layer="eye: right">
       </a-videosphere>
     </a-scene>
 
     <script>
-      /**
-       * Component to assign spheres to specific layers
-       * Layer 1 = Left Eye, Layer 2 = Right Eye
-       */
-      AFRAME.registerComponent('stereo', {
+      // 1. Assign spheres to layers correctly
+      AFRAME.registerComponent('stereo-layer', {
         schema: { eye: { default: 'left' } },
         init: function () {
           const layer = this.data.eye === 'left' ? 1 : 2;
+          // Set layer on the entity and all its children/meshes
           this.el.object3D.layers.set(layer);
-          // Apply to children (mesh) once loaded
-          this.el.addEventListener('model-loaded', () => {
-            this.el.object3D.traverse(node => node.layers.set(layer));
+          this.el.addEventListener('loaded', () => {
+            this.el.object3D.traverse(function(node) {
+              node.layers.set(layer);
+            });
           });
         }
       });
 
-      /**
-       * Component to force the VR camera to split layers per eye
-       */
-      AFRAME.registerComponent('stereo-camera', {
+      // 2. Force the VR camera to separate these layers
+      AFRAME.registerComponent('stereo-camera-fix', {
+        init: function() {
+          // Enable all layers on the main camera initially
+          this.el.getObject3D('camera').layers.enable(1);
+          this.el.getObject3D('camera').layers.enable(2);
+        },
         tick: function () {
           const sceneEl = this.el.sceneEl;
           if (!sceneEl.is('vr-mode')) return;
 
           const camera = this.el.getObject3D('camera');
+          // In VR mode, Three.js uses an ArrayCamera with two sub-cameras
           if (camera.cameras && camera.cameras.length >= 2) {
-            camera.cameras[0].layers.set(1); // Left eye sees Layer 1
-            camera.cameras[1].layers.set(2); // Right eye sees Layer 2
+            camera.cameras[0].layers.set(1); // Left eye only sees layer 1
+            camera.cameras[1].layers.set(2); // Right eye only sees layer 2
           }
         }
       });
 
+      // UI Logic
       const fileInput = document.getElementById('fileInput');
       const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('v');
@@ -113,34 +98,22 @@
           video.src = URL.createObjectURL(e.target.files[0]);
           video.load();
           startBtn.classList.remove('hidden');
-          document.getElementById('msg').innerText = "Ready to play.";
         }
       };
 
-      async function enterVRMode() {
-        // Request Gyroscope permissions for iOS
+      startBtn.addEventListener('click', async () => {
+        // Request sensors for iOS
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          try { await DeviceOrientationEvent.requestPermission(); } catch (e) { console.error(e); }
+          await DeviceOrientationEvent.requestPermission();
         }
-
+        
         ui.style.display = 'none';
         sceneEl.style.display = 'block';
-        
         video.play();
 
-        const forceVR = () => {
-          // Standard A-Frame method to trigger Cardboard/VR split screen
-          sceneEl.enterVR();
-        };
-
-        if (sceneEl.hasLoaded) {
-          forceVR();
-        } else {
-          sceneEl.addEventListener('loaded', forceVR);
-        }
-      }
-
-      startBtn.addEventListener('click', enterVRMode);
+        if (sceneEl.hasLoaded) { sceneEl.enterVR(); } 
+        else { sceneEl.addEventListener('loaded', () => sceneEl.enterVR()); }
+      });
     </script>
   </body>
 </html>
