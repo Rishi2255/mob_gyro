@@ -1,119 +1,66 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>360 VR Player - Top/Bottom</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <style>
-      body { margin: 0; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
-      #ui { 
-        position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        background: #111; text-align: center;
-      }
-      button { 
-        padding: 15px 30px; background: #222; color: white; border: 1px solid #444; 
-        border-radius: 8px; cursor: pointer; font-size: 16px; 
-      }
-      .hidden { display: none !important; }
-      .a-enter-vr { display: none !important; }
-    </style>
-  </head>
-  <body>
+<head>
+  <title>360 Stereo VR Player</title>
+  <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet">
+  <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/videojs-vr@1.7.0/dist/videojs-vr.min.js"></script>
+  
+  <style>
+    body { margin: 0; background: #000; color: white; font-family: sans-serif; }
+    .player-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #video-ui { text-align: center; }
+    .video-js { width: 100vw; height: 100vh; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
 
-    <div id="ui">
-      <h1>360 Stereo Player</h1>
-      <input type="file" id="fileInput" accept="video/*">
-      <button id="startBtn" class="hidden">START VR</button>
-    </div>
+  <div id="video-ui" class="player-container">
+    <h1>360 Stereo Player</h1>
+    <p>Upload your Top-Bottom 360 video</p>
+    <input type="file" id="fileInput" accept="video/*">
+  </div>
 
-    <a-scene id="scene" vr-mode-ui="enabled: false" style="display:none">
-      <a-assets>
-        <video id="v" crossorigin="anonymous" playsinline webkit-playsinline loop="true"></video>
-      </a-assets>
+  <div id="player-wrapper" class="hidden">
+    <video id="video-player" class="video-js vjs-default-skin" controls playsinline></video>
+  </div>
 
-      <a-entity id="cameraRig">
-        <a-entity id="camera" camera look-controls stereo-camera-fix></a-entity>
-      </a-entity>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const ui = document.getElementById('video-ui');
+    const wrapper = document.getElementById('player-wrapper');
 
-      <a-videosphere 
-        src="#v" 
-        rotation="0 -90 0" 
-        material="repeat: 1 0.5; offset: 0 0.5" 
-        stereo-layer="eye: left">
-      </a-videosphere>
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
-      <a-videosphere 
-        src="#v" 
-        rotation="0 -90 0" 
-        material="repeat: 1 0.5; offset: 0 0" 
-        stereo-layer="eye: right">
-      </a-videosphere>
-    </a-scene>
+      const videoUrl = URL.createObjectURL(file);
+      
+      // Hide UI and show player
+      ui.classList.add('hidden');
+      wrapper.classList.remove('hidden');
 
-    <script>
-      // 1. Assign spheres to layers correctly
-      AFRAME.registerComponent('stereo-layer', {
-        schema: { eye: { default: 'left' } },
-        init: function () {
-          const layer = this.data.eye === 'left' ? 1 : 2;
-          // Set layer on the entity and all its children/meshes
-          this.el.object3D.layers.set(layer);
-          this.el.addEventListener('loaded', () => {
-            this.el.object3D.traverse(function(node) {
-              node.layers.set(layer);
-            });
-          });
-        }
+      // Initialize Video.js
+      const player = videojs('video-player', {
+        autoplay: true,
+        sources: [{ src: videoUrl, type: file.type }]
       });
 
-      // 2. Force the VR camera to separate these layers
-      AFRAME.registerComponent('stereo-camera-fix', {
-        init: function() {
-          // Enable all layers on the main camera initially
-          this.el.getObject3D('camera').layers.enable(1);
-          this.el.getObject3D('camera').layers.enable(2);
-        },
-        tick: function () {
-          const sceneEl = this.el.sceneEl;
-          if (!sceneEl.is('vr-mode')) return;
-
-          const camera = this.el.getObject3D('camera');
-          // In VR mode, Three.js uses an ArrayCamera with two sub-cameras
-          if (camera.cameras && camera.cameras.length >= 2) {
-            camera.cameras[0].layers.set(1); // Left eye only sees layer 1
-            camera.cameras[1].layers.set(2); // Right eye only sees layer 2
-          }
-        }
+      // Initialize VR Plugin
+      player.vr({
+        projection: '360_TB', // Specifically handles Top-Bottom stereo
+        debug: false,
+        forceCardboard: true // Forces the split-screen view
       });
 
-      // UI Logic
-      const fileInput = document.getElementById('fileInput');
-      const startBtn = document.getElementById('startBtn');
-      const video = document.getElementById('v');
-      const sceneEl = document.querySelector('a-scene');
-      const ui = document.getElementById('ui');
-
-      fileInput.onchange = (e) => {
-        if (e.target.files[0]) {
-          video.src = URL.createObjectURL(e.target.files[0]);
-          video.load();
-          startBtn.classList.remove('hidden');
-        }
-      };
-
-      startBtn.addEventListener('click', async () => {
-        // Request sensors for iOS
+      // Handle iOS permission if needed
+      player.on('play', () => {
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          await DeviceOrientationEvent.requestPermission();
+          DeviceOrientationEvent.requestPermission();
         }
-        
-        ui.style.display = 'none';
-        sceneEl.style.display = 'block';
-        video.play();
-
-        if (sceneEl.hasLoaded) { sceneEl.enterVR(); } 
-        else { sceneEl.addEventListener('loaded', () => sceneEl.enterVR()); }
       });
-    </script>
-  </body>
+    };
+  </script>
+</body>
 </html>
