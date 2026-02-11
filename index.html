@@ -1,140 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <title>360 VR - Manual Split</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>360 Stereo VR - Panolens</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
-        #overlay {
-            position: absolute; z-index: 10; top: 0; left: 0; width: 100%; height: 100%;
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; }
+        #container { width: 100%; height: 100%; }
+        #ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.9); color: white;
+            z-index: 10; background: #111; color: white; font-family: sans-serif;
         }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 8px; border: none; background: #007bff; color: white; }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 10px; border: none; background: #007bff; color: white; margin-top: 10px; }
         input { margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-<div id="overlay">
-    <h1>360 Stereo VR</h1>
+<div id="ui">
+    <h2>360 VR Video Player</h2>
+    <p>Upload Top-Bottom (Over/Under) Video</p>
     <input type="file" id="fileInput" accept="video/*">
     <button id="startBtn" style="display:none">START VR MODE</button>
 </div>
 
-<script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-        }
-    }
-</script>
+<div id="container"></div>
 
-<script type="module">
-    import * as THREE from 'three';
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r105/three.min.js"></script>
+<script src="https://pchen66.github.io/js/panolens/panolens.min.js"></script>
 
-    let scene, camera, renderer, video, texture;
+<script>
     const fileInput = document.getElementById('fileInput');
     const startBtn = document.getElementById('startBtn');
-    const overlay = document.getElementById('overlay');
+    const ui = document.getElementById('ui');
+    const container = document.getElementById('container');
+
+    let viewer, videoPanorama;
 
     fileInput.onchange = (e) => {
         if (e.target.files[0]) {
-            const url = URL.createObjectURL(e.target.files[0]);
-            setupVideo(url);
             startBtn.style.display = 'block';
         }
     };
 
-    function setupVideo(url) {
-        video = document.createElement('video');
-        video.src = url;
-        video.loop = true;
-        video.muted = false;
-        video.playsInline = true;
-        video.crossOrigin = "anonymous";
-        
-        texture = new THREE.VideoTexture(video);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        
-        initScene();
-    }
-
-    function initScene() {
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        // Create the geometry
-        const geometry = new THREE.SphereGeometry(500, 60, 40);
-        geometry.scale(-1, 1, 1); // Invert sphere so video is on the inside
-
-        // Material for Left Eye (Top half of video)
-        const leftMaterial = new THREE.MeshBasicMaterial({ map: texture.clone() });
-        leftMaterial.map.repeat.set(1, 0.5);
-        leftMaterial.map.offset.set(0, 0.5);
-
-        // Material for Right Eye (Bottom half of video)
-        const rightMaterial = new THREE.MeshBasicMaterial({ map: texture.clone() });
-        rightMaterial.map.repeat.set(1, 0.5);
-        rightMaterial.map.offset.set(0, 0);
-
-        const leftSphere = new THREE.Mesh(geometry, leftMaterial);
-        const rightSphere = new THREE.Mesh(geometry, rightMaterial);
-
-        // Assign layers: 1 for Left, 2 for Right
-        leftSphere.layers.set(1);
-        rightSphere.layers.set(2);
-
-        scene.add(leftSphere);
-        scene.add(rightSphere);
-
-        window.addEventListener('resize', onWindowResize);
-    }
-
-    function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    startBtn.onclick = () => {
-        overlay.style.display = 'none';
-        video.play();
-        
-        // Request Gyro for mobile
+    async function initVR() {
+        // 1. Request Gyro Permissions (Crucial for iOS)
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            DeviceOrientationEvent.requestPermission();
+            try {
+                await DeviceOrientationEvent.requestPermission();
+            } catch (err) {
+                console.error("Gyro permission denied");
+            }
         }
 
-        animate();
-    };
+        const file = fileInput.files[0];
+        const url = URL.createObjectURL(file);
 
-    function animate() {
-        requestAnimationFrame(animate);
+        // 2. Setup Viewer
+        viewer = new PANOLENS.Viewer({ 
+            container: container,
+            controlBar: true,
+            autoHideControlBar: true
+        });
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        // 3. Create Video Panorama in Stereo Top-Bottom mode
+        // PANOLENS.VideoPanorama( url, options )
+        videoPanorama = new PANOLENS.VideoPanorama(url, { 
+            autoplay: true,
+            muted: false,
+            loop: true,
+            playsinline: true
+        });
 
-        // RENDER LEFT EYE
-        renderer.setViewport(0, 0, width / 2, height);
-        renderer.setScissor(0, 0, width / 2, height);
-        renderer.setScissorTest(true);
-        camera.layers.set(1);
-        renderer.render(scene, camera);
+        // This is the magic line that tells Panolens it's Top-Bottom
+        videoPanorama.setStereoFormat(PANOLENS.Data.StereoFormat.TOP_BOTTOM);
 
-        // RENDER RIGHT EYE
-        renderer.setViewport(width / 2, 0, width / 2, height);
-        renderer.setScissor(width / 2, 0, width / 2, height);
-        renderer.setScissorTest(true);
-        camera.layers.set(2);
-        renderer.render(scene, camera);
+        viewer.add(videoPanorama);
+
+        // 4. Force Cardboard (Split Screen) Mode immediately
+        viewer.enableControl(PANOLENS.Controls.DEVICEORIENTATION);
+        viewer.enableEffect(PANOLENS.Modes.CARDBOARD);
+
+        ui.style.display = 'none';
     }
+
+    startBtn.addEventListener('click', initVR);
 </script>
 </body>
 </html>
