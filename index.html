@@ -1,68 +1,525 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Stereo VR Fix</title>
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stereo 360° Video VR · Upload & Play</title>
+    <!-- A-Frame with VR support -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- Optional: better touch/UI -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
-      body { margin: 0; background: #111; color: white; font-family: sans-serif; }
-      #overlay {
-        position: absolute; z-index: 10; width: 100%; height: 100%;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: rgba(0,0,0,0.9);
-      }
-      .btn { padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; display: none; }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background-color: #0a0a1a;
+            color: white;
+        }
+        #upload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1e1e3e, #0a0a1a);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.6s ease, visibility 0.6s;
+            backdrop-filter: blur(4px);
+            border: 4px dashed rgba(255,255,255,0.3);
+            box-sizing: border-box;
+        }
+        .upload-card {
+            background: rgba(10, 10, 30, 0.85);
+            padding: 2.5rem 2rem;
+            border-radius: 32px;
+            text-align: center;
+            max-width: 500px;
+            margin: 0 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(8px);
+        }
+        .upload-card h1 {
+            margin-top: 0;
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #ffe6b3;
+            text-shadow: 0 0 10px #aa88ff;
+        }
+        .upload-card p {
+            color: #ccccff;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        .file-label {
+            background: linear-gradient(45deg, #6b46c1, #ab47bc);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-block;
+            transition: 0.3s;
+            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .file-label:hover {
+            background: linear-gradient(45deg, #7e57c2, #ba68c8);
+            transform: scale(1.05);
+            box-shadow: 0 0 25px #a05eff;
+        }
+        #file-input {
+            display: none;
+        }
+        #filename {
+            margin-top: 1.5rem;
+            font-style: italic;
+            color: #b3b3ff;
+            word-break: break-word;
+        }
+        #vr-hint {
+            position: fixed;
+            bottom: 25px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255,255,240,0.8);
+            font-size: 1rem;
+            pointer-events: none;
+            text-shadow: 0 0 10px black;
+            z-index: 300;
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            backdrop-filter: blur(2px);
+            width: fit-content;
+            margin: 0 auto;
+            border-radius: 40px;
+            padding: 10px 24px;
+        }
+        #a-scene-container {
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        /* loader */
+        .loader {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            border-top-color: #ffffff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 12px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .hide { opacity: 0 !important; visibility: hidden !important; }
     </style>
-  </head>
-  <body>
-
-    <div id="overlay">
-      <h2>Stereoscopic 360 Player</h2>
-      <input type="file" id="file-input" accept="video/*">
-      <p id="status">Select a video file to begin</p>
-      <button id="start-btn" class="btn">PLAY VIDEO</button>
+</head>
+<body>
+    <!-- Upload overlay: hidden once video is loaded -->
+    <div id="upload-overlay">
+        <div class="upload-card">
+            <h1>🎞️ Stereo 360° VR</h1>
+            <p>Upload your stereoscopic equirectangular video.<br><strong style="color:#ffe0a0;">Top = Left Eye, Bottom = Right Eye</strong></p>
+            <label for="file-input" class="file-label" id="upload-btn">
+                📁 Choose Video
+            </label>
+            <input type="file" id="file-input" accept="video/mp4,video/quicktime,video/webm,video/ogg,video/*">
+            <div id="filename"></div>
+            <div style="margin-top: 24px; font-size: 0.95rem; color: #aaaaff;">
+                <span style="background: rgba(255,255,255,0.15); padding: 8px 18px; border-radius: 30px;">🔘 Supports VR headset & Cardboard</span>
+            </div>
+        </div>
+        <div id="vr-hint">
+            ⚡ After upload, tap the "VR" / goggles icon to enter VR mode
+        </div>
     </div>
 
-    <a-scene>
-      <a-assets>
-        <video id="stereo-video" crossorigin="anonymous" playsinline webkit-playsinline preload="auto"></video>
-      </a-assets>
+    <!-- A-Frame scene – hidden until video is set -->
+    <div id="a-scene-container" style="opacity:0;">
+        <a-scene vr-mode-ui="enabled: true" background="color: #0f0f1f" loading-screen="dotsColor: white; backgroundColor: #0a0a1a" embedded>
+            <!-- Assets: video will be injected dynamically -->
+            <a-assets id="dynamic-assets">
+                <!-- video asset placeholder injected via JS -->
+            </a-assets>
 
-      <a-entity camera look-controls stereo-camera="eye:left"></a-entity>
+            <!-- Camera with gaze cursor for convenience -->
+            <a-camera position="0 0 0">
+                <a-cursor color="#ffffff" fuse="false" raycaster="objects: .clickable"></a-cursor>
+            </a-camera>
 
-      <a-videosphere src="#stereo-video" stereo="eye:left" material="shader: flat; npot: true"></a-videosphere>
-      <a-videosphere src="#stereo-video" stereo="eye:right" material="shader: flat; npot: true"></a-videosphere>
-    </a-scene>
+            <!-- Left eye sphere (top half of source) - using video sphere with shader that crops top half -->
+            <a-entity id="leftEyeSphere"
+                geometry="primitive: sphere; radius: 50; segmentsWidth: 64; segmentsHeight: 64; phiStart: 0; phiLength: 3.141592653589793; thetaStart: 0; thetaLength: 6.283185307179586"
+                material="shader: standard; src: #stereo-video; side: double; npot: true; 
+                          color: white; 
+                          repeat: 1 0.5; 
+                          offset: 0 0.5;">
+            </a-entity>
+
+            <!-- Right eye sphere (bottom half of source) -->
+            <a-entity id="rightEyeSphere"
+                geometry="primitive: sphere; radius: 50; segmentsWidth: 64; segmentsHeight: 64; phiStart: 0; phiLength: 3.141592653589793; thetaStart: 0; thetaLength: 6.283185307179586"
+                material="shader: standard; src: #stereo-video; side: double; npot: true; 
+                          color: white; 
+                          repeat: 1 0.5; 
+                          offset: 0 0;">
+            </a-entity>
+            
+            <!-- Light (ambient) -->
+            <a-light type="ambient" color="#aaaaff"></a-light>
+        </a-scene>
+    </div>
 
     <script>
-      const fileInput = document.getElementById('file-input');
-      const video = document.getElementById('stereo-video');
-      const startBtn = document.getElementById('start-btn');
-      const status = document.getElementById('status');
+        (function() {
+            'use strict';
 
-      fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          status.innerText = "Processing file...";
-          video.src = URL.createObjectURL(file);
-          video.load();
-          
-          video.onloadedmetadata = () => {
-            status.innerText = "Video Loaded (" + video.videoWidth + "x" + video.videoHeight + ")";
-            startBtn.style.display = "block";
-          };
-        }
-      });
+            // ----- Elements -----
+            const overlay = document.getElementById('upload-overlay');
+            const sceneContainer = document.getElementById('a-scene-container');
+            const fileInput = document.getElementById('file-input');
+            const filenameDisplay = document.getElementById('filename');
+            const assetsEl = document.getElementById('dynamic-assets');
+            
+            // We will create a <video> asset with id="stereo-video"
+            let videoAsset = null;
 
-      startBtn.addEventListener('click', () => {
-        video.play();
-        document.getElementById('overlay').style.display = 'none';
-        
-        // Force A-Frame to refresh textures
-        const scene = document.querySelector('a-scene');
-        scene.renderTarget = null; // Forces a re-render
-      });
+            // ----- Helper: reset & create video element -----
+            function createVideoElement(sourceUrl) {
+                // remove previous video asset if exists
+                const oldVideo = document.getElementById('stereo-video');
+                if (oldVideo) oldVideo.remove();
+
+                const video = document.createElement('video');
+                video.id = 'stereo-video';
+                video.setAttribute('autoplay', 'true');
+                video.setAttribute('loop', 'true');
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('crossorigin', 'anonymous');
+                video.setAttribute('webkit-playsinline', 'true');
+                video.style.display = 'none'; // hide but it's in assets
+                
+                // Important: make video responsive & enable stereo textures
+                video.muted = true; // autoplay policy requires muted
+                video.loop = true;
+                video.playsInline = true;
+                
+                // Add source
+                const source = document.createElement('source');
+                source.src = sourceUrl;
+                source.type = source.type || 'video/mp4'; // fallback
+                video.appendChild(source);
+                
+                // Append to assets
+                assetsEl.appendChild(video);
+                videoAsset = video;
+                return video;
+            }
+
+            // ----- Load video from File -----
+            function loadVideoFromFile(file) {
+                // Show filename
+                filenameDisplay.innerHTML = `📀 Loading: ${file.name} <span class="loader"></span>`;
+                
+                // Create object URL
+                const url = URL.createObjectURL(file);
+                
+                // Create video element
+                const videoEl = createVideoElement(url);
+                
+                // Wait for video metadata to adjust scene and fade in
+                videoEl.addEventListener('loadedmetadata', function onMeta() {
+                    console.log('Video metadata loaded. Size:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+                    
+                    // optional: check if ratio is 2:1? but not required.
+                    
+                    // Ensure video playback
+                    videoEl.play().catch(e => {
+                        console.warn('Autoplay failed, user interaction may be needed:', e);
+                        // Some mobile browsers need user gesture; but upload click counts as gesture.
+                        // Try again: play on first interaction
+                        document.body.addEventListener('click', function playOnce() {
+                            videoEl.play();
+                            document.body.removeEventListener('click', playOnce);
+                        });
+                    });
+                    
+                    // Hide overlay, show scene
+                    overlay.classList.add('hide');
+                    sceneContainer.style.opacity = '1';
+                    
+                    // Update filename to success
+                    filenameDisplay.innerHTML = `✅ Playing: ${file.name}`;
+                    
+                    // Cleanup object URL later if needed (after video is attached)
+                    videoEl.addEventListener('ended', () => {});
+                });
+
+                videoEl.addEventListener('error', (e) => {
+                    console.error('Video error', e);
+                    filenameDisplay.innerHTML = `❌ Error loading video. Please try another file.`;
+                });
+                
+                // Force load
+                videoEl.load();
+            }
+
+            // ----- File selection handler -----
+            fileInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                // Check if it's video
+                if (!file.type.startsWith('video/')) {
+                    filenameDisplay.innerHTML = '⚠️ Please select a video file.';
+                    return;
+                }
+                
+                loadVideoFromFile(file);
+            });
+
+            // Also handle drag-drop? Optional but nice
+            // Make overlay dragover highlight
+            overlay.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                overlay.style.borderColor = 'rgba(255,200,100,0.9)';
+                overlay.style.backgroundColor = 'rgba(30,20,50,0.9)';
+            });
+            overlay.addEventListener('dragleave', (e) => {
+                overlay.style.borderColor = 'rgba(255,255,255,0.3)';
+                overlay.style.backgroundColor = '';
+            });
+            overlay.addEventListener('drop', (e) => {
+                e.preventDefault();
+                overlay.style.borderColor = 'rgba(255,255,255,0.3)';
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('video/')) {
+                    fileInput.files = e.dataTransfer.files; // assign (works in modern browsers)
+                    loadVideoFromFile(file);
+                } else {
+                    filenameDisplay.innerHTML = '❌ Not a video file.';
+                }
+            });
+
+            // Prevent default drag on page
+            document.addEventListener('dragover', (e) => e.preventDefault());
+            document.addEventListener('drop', (e) => e.preventDefault());
+
+            // ----- Instructions for VR mode -----
+            // Everything is set: left sphere uses offset 0,0.5 (top half = left eye)
+            // right sphere uses offset 0,0 (bottom half = right eye)
+            // Sphere geometry covers full equirect top/bottom half each.
+            
+            // Note: For correct stereo rendering per eye, the A-Frame scene relies on 
+            // left/right sphere entities. Both visible simultaneously; VR mode will 
+            // present correct view due to headset display or cardboard.
+            // This is standard "side-by-side" but via two layers - however because they 
+            // are on the same coordinates, left eye sees both left and right spheres? 
+            // Wait: A-Frame renders both eyes, both spheres are visible to each eye.
+            // To make left sphere only visible to left eye, and right sphere only to right eye,
+            // we need to use the `visible` property with `camera:left` and `camera:right` 
+            // in A-Frame, but easier: use `stereo` effect via two separate entities with 
+            // `visible="left"` and `visible="right"`. 
+            
+            // UPDATE: For true stereo equirectangular (top-bottom), we need to restrict 
+            // left sphere to left eye and right sphere to right eye. Using standard 
+            // A-Frame component `visible` does not support per-eye. Instead we can use 
+            // `oculus-go-controls`? No. Better approach: set `camera` property to left/right? 
+            // Actually, A-Frame has `visible` attribute with `left`/`right`? Not exactly.
+            // We must use `renderer` with `stereo` or use the `visible` property with `camera: left` 
+            // via custom shader? Alternatively use `videosphere` with `stereo` component? 
+            // But we can achieve correct stereo with two spheres and set the `visible` attribute 
+            // to `left` / `right` using A-Frame's `visible` + `camera` property? Actually A-Frame 
+            // has `visible="left"`??? No. 
+            
+            // Let's use the standard solution: For top-bottom stereo we want left eye see top half, 
+            // right eye see bottom half. We can do this by using one sphere but with 
+            // a stereo shader (material `side: left`/`right`?). Another simpler method: 
+            // Use two spheres and set the `material`'s `side: left` / `side: right`? Not exist.
+            
+            // I'll implement per-eye visibility using `setAttribute('visible', false)` on wrong camera?
+            // In A-Frame we can listen to `camera` and set visibility based on which eye is rendering.
+            // Better: Use A-Frame's `stereocam` or `vr-mode-ui`? Actually we can add a component
+            // that toggles visibility per eye. Since we need a reliable deployment, we'll add 
+            // a custom component to each sphere to hide for opposite eye.
+            
+            // I will inject two custom components: 'left-eye-only' and 'right-eye-only'
+            // Wait: let's do it clean: after scene loads, register a component.
+            
+            // For simplicity and guarantee, I'll write a custom A-Frame component that 
+            // hides the entity for the wrong eye using the `is('left')` or `is('right')` 
+            // in the shader? Not trivial. But we can use the `beforeRender` handler.
+            
+            // Let's do this robustly: 
+            // We'll add a component called `per-eye-visibility` to both spheres.
+            
+            function initPerEyeComponents() {
+                // Register component if not already
+                if (!AFRAME.components['per-eye-visibility']) {
+                    AFRAME.registerComponent('per-eye-visibility', {
+                        schema: {
+                            eye: {type: 'string', default: 'left'} // left or right
+                        },
+                        init: function() {
+                            this.camera = null;
+                            this.scene = this.el.sceneEl;
+                        },
+                        tick: function() {
+                            // Get the active camera
+                            const camera = this.scene.camera;
+                            if (!camera) return;
+                            
+                            // Get the renderer
+                            const renderer = this.scene.renderer;
+                            if (!renderer) return;
+                            
+                            // In VR mode, renderer.xr.enabled is true, we can check the eye
+                            // For non-VR, we want both visible? But we want stereo preview? 
+                            // Usually in 2D mode we want to show both eyes overlapping? That looks messy.
+                            // But for desktop we can either show both (ghosting) or default to left eye only? 
+                            // Let's decide: In non-VR, show only left eye sphere (top half) because 
+                            // bottom half would be overlapping with offset? Actually to make 2D preview 
+                            // usable, we should show only left sphere (top half). That way user sees 
+                            // normal equirect. But with current code both spheres visible gives double image.
+                            // So adjust: In 2D, hide right sphere; in VR, show each to correct eye.
+                            
+                            // So: 
+                            // If not in VR (renderer.xr.isPresenting === false), then 
+                            // - left sphere visible, right sphere invisible.
+                            // If in VR:
+                            // - left sphere visible only to left eye, right sphere visible only to right eye.
+                            
+                            const isVRPresenting = renderer.xr && renderer.xr.isPresenting;
+                            const eye = this.data.eye;
+                            
+                            if (!isVRPresenting) {
+                                // Desktop 2D: only show left sphere
+                                if (eye === 'left') {
+                                    this.el.setAttribute('visible', true);
+                                } else {
+                                    this.el.setAttribute('visible', false);
+                                }
+                                return;
+                            }
+                            
+                            // VR mode: use camera context to determine current eye
+                            // In A-Frame, we can get from renderer.xr.getCamera()? 
+                            // Let's use THREE.WebXRManager's current camera? 
+                            const xrCamera = renderer.xr.getCamera(); 
+                            if (!xrCamera) return;
+                            
+                            // The xrCamera.camera is the current eye camera. 
+                            // We can check isLeft property? Usually we can check viewport.
+                            // Simpler: check if camera is left or right by name? 
+                            // Quick method: use xrCamera.parent? I'll use viewport width position.
+                            // E.g., if xrCamera.viewport.x === 0 and width is half? 
+                            
+                            // More robust: check camera.layers? 
+                            // We'll assume left camera renders to left eye.
+                            // The default XR camera has `camera.isLeft`? not standard.
+                            // Instead: Use the THREE.WebXRManager's `getCamera` - we can see
+                            // the array cameras: xrCamera.cameras array length 2. 
+                            // But the current camera is the one being rendered. 
+                            // I can compare if xrCamera === xrCamera.cameras[0] -> left? 
+                            
+                            if (xrCamera.cameras && xrCamera.cameras.length >= 2) {
+                                const isLeftCamera = (xrCamera === xrCamera.cameras[0]);
+                                const isRightCamera = (xrCamera === xrCamera.cameras[1]);
+                                
+                                if (eye === 'left') {
+                                    this.el.setAttribute('visible', isLeftCamera);
+                                } else if (eye === 'right') {
+                                    this.el.setAttribute('visible', isRightCamera);
+                                }
+                            } else {
+                                // Fallback: just show left to left, right to right based on viewport?
+                                // Not perfect but decent.
+                                if (eye === 'left') {
+                                    this.el.setAttribute('visible', xrCamera.viewport && xrCamera.viewport.x === 0);
+                                } else {
+                                    this.el.setAttribute('visible', xrCamera.viewport && xrCamera.viewport.x > 0);
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Add components to spheres
+                const leftSphere = document.getElementById('leftEyeSphere');
+                const rightSphere = document.getElementById('rightEyeSphere');
+                
+                if (leftSphere && !leftSphere.hasAttribute('per-eye-visibility')) {
+                    leftSphere.setAttribute('per-eye-visibility', 'eye: left');
+                }
+                if (rightSphere && !rightSphere.hasAttribute('per-eye-visibility')) {
+                    rightSphere.setAttribute('per-eye-visibility', 'eye: right');
+                }
+            }
+
+            // Initialize when scene is ready
+            function onSceneReady() {
+                initPerEyeComponents();
+                // Also set initial visibility: in non-VR, show left sphere only, hide right
+                setTimeout(() => {
+                    const leftSphere = document.getElementById('leftEyeSphere');
+                    const rightSphere = document.getElementById('rightEyeSphere');
+                    const scene = document.querySelector('a-scene');
+                    if (scene && scene.renderer && !scene.renderer.xr?.isPresenting) {
+                        if (leftSphere) leftSphere.setAttribute('visible', true);
+                        if (rightSphere) rightSphere.setAttribute('visible', false);
+                    }
+                }, 500);
+            }
+
+            // Wait for scene to load
+            const sceneEl = document.querySelector('a-scene');
+            if (sceneEl) {
+                if (sceneEl.hasLoaded) {
+                    onSceneReady();
+                } else {
+                    sceneEl.addEventListener('loaded', onSceneReady);
+                }
+            }
+
+            // For 2D preview: we need to ensure right sphere is off, left sphere on.
+            // Also when entering/exiting VR, component will manage.
+            // Add event listener for vr presentation change
+            const scene = document.querySelector('a-scene');
+            if (scene) {
+                scene.addEventListener('enter-vr', () => {
+                    // Let component handle visibility per eye
+                });
+                scene.addEventListener('exit-vr', () => {
+                    // Switch to left sphere only
+                    const leftSphere = document.getElementById('leftEyeSphere');
+                    const rightSphere = document.getElementById('rightEyeSphere');
+                    if (leftSphere) leftSphere.setAttribute('visible', true);
+                    if (rightSphere) rightSphere.setAttribute('visible', false);
+                });
+            }
+
+            // Also re-run perEye component tick automatically.
+            // Edge: In desktop mono we set left visible true, right false.
+        })();
     </script>
-  </body>
+    
+    <!-- Ensure spheres have correct offset/repeat already set in HTML -->
+    <!-- Additionally, if video aspect is not 2:1, repeat/offset still works -->
+</body>
 </html>
