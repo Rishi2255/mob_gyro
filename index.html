@@ -2,78 +2,66 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Stereo 360 Player</title>
+    <title>Stereo VR Fix</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-stereo-component@0.5.0/dist/aframe-stereo-component.min.js"></script>
     <style>
-      body { margin: 0; background-color: #000; color: white; font-family: sans-serif; }
+      body { margin: 0; background: #111; color: white; font-family: sans-serif; }
       #overlay {
-        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        position: absolute; z-index: 10; width: 100%; height: 100%;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        z-index: 10; background: #111;
+        background: rgba(0,0,0,0.9);
       }
-      .btn {
-        background: #24d; color: white; padding: 15px 30px; border: none;
-        border-radius: 5px; cursor: pointer; font-size: 1.1rem; margin-top: 20px;
-      }
-      .btn:disabled { background: #555; }
-      #status { margin-top: 10px; color: #aaa; }
+      .btn { padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; display: none; }
     </style>
   </head>
   <body>
 
     <div id="overlay">
-      <h2>360 Stereo VR Player</h2>
+      <h2>Stereoscopic 360 Player</h2>
       <input type="file" id="file-input" accept="video/*">
-      <div id="status">Please select a video file</div>
-      <button id="start-btn" class="btn" style="display: none;">ENTER VR</button>
+      <p id="status">Select a video file to begin</p>
+      <button id="start-btn" class="btn">PLAY VIDEO</button>
     </div>
 
-    <a-scene id="vr-scene" style="display: none;">
-      <a-assets timeout="10000">
-        <video id="stereo-video" crossorigin="anonymous" playsinline webkit-playsinline></video>
+    <a-scene>
+      <a-assets>
+        <video id="stereo-video" crossorigin="anonymous" playsinline webkit-playsinline preload="auto"></video>
       </a-assets>
 
       <a-entity camera look-controls stereo-camera="eye:left"></a-entity>
 
-      <a-videosphere src="#stereo-video" rotation="0 -90 0" stereo="eye:left"></a-videosphere>
-      <a-videosphere src="#stereo-video" rotation="0 -90 0" stereo="eye:right"></a-videosphere>
+      <a-videosphere src="#stereo-video" stereo="eye:left" material="shader: flat; npot: true"></a-videosphere>
+      <a-videosphere src="#stereo-video" stereo="eye:right" material="shader: flat; npot: true"></a-videosphere>
     </a-scene>
 
     <script>
       const fileInput = document.getElementById('file-input');
       const video = document.getElementById('stereo-video');
       const startBtn = document.getElementById('start-btn');
-      const overlay = document.getElementById('overlay');
-      const scene = document.getElementById('vr-scene');
       const status = document.getElementById('status');
 
-      fileInput.addEventListener('change', function(e) {
+      fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-          status.innerText = "Loading video file...";
-          const url = URL.createObjectURL(file);
-          video.src = url;
-          video.load(); // Force the browser to start loading the file
-
-          // Wait for video metadata to be ready
-          video.oncanplaythrough = () => {
-            status.innerText = "Video ready!";
+          status.innerText = "Processing file...";
+          video.src = URL.createObjectURL(file);
+          video.load();
+          
+          video.onloadedmetadata = () => {
+            status.innerText = "Video Loaded (" + video.videoWidth + "x" + video.videoHeight + ")";
             startBtn.style.display = "block";
           };
         }
       });
 
-      startBtn.addEventListener('click', function() {
-        // Essential: start video via user click to bypass browser blocks
-        video.play().then(() => {
-          overlay.style.display = 'none';
-          scene.style.display = 'block';
-          // Trigger A-Frame to enter VR mode automatically if you want
-          // scene.enterVR(); 
-        }).catch(err => {
-          status.innerText = "Error: " + err.message;
-        });
+      startBtn.addEventListener('click', () => {
+        video.play();
+        document.getElementById('overlay').style.display = 'none';
+        
+        // Force A-Frame to refresh textures
+        const scene = document.querySelector('a-scene');
+        scene.renderTarget = null; // Forces a re-render
       });
     </script>
   </body>
